@@ -21,7 +21,7 @@ def apply_custom_styles(bg_file):
     bin_str = get_base64(bg_file)
     style_code = f'''
     <style>
-    /* Main App Background with Dark Overlay for readability */
+    /* Main App Background with Dark Overlay */
     .stApp {{
         background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
                     url("data:image/png;base64,{bin_str}");
@@ -38,10 +38,10 @@ def apply_custom_styles(bg_file):
         border-radius: 20px;
     }}
 
-    /* FIXING TEXT COLORS - Making them pop against dark bg */
+    /* FIXING TEXT COLORS */
     h1, h2, h3, p, span, label, .stMarkdown {{
         color: #FFFFFF !important; 
-    }
+    }}
     
     /* Gold for UVI Numbers */
     div[data-testid="stMetricValue"] {{
