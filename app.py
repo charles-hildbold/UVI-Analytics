@@ -2,49 +2,71 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import streamlit as st
-
-# Display the banner at the top
-st.image("header.png", use_container_width=True)
-st.title("Unified Value Index (UVI)")
-
 import base64
 
+# --- 1. CONFIG (MUST BE FIRST) ---
+st.set_page_config(
+    page_title="UVI Analytics",
+    page_icon="11617.png", 
+    layout="wide"
+)
+
+# --- 2. BACKGROUND & STYLING ENGINE ---
 def get_base64(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
-def set_background(png_file):
-    bin_str = get_base64(png_file)
-    page_bg_img = f'''
+def apply_custom_styles(bg_file):
+    bin_str = get_base64(bg_file)
+    style_code = f'''
     <style>
+    /* Main App Background with Dark Overlay for readability */
     .stApp {{
-        background-image: url("data:image/png;base64,{bin_str}");
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+                    url("data:image/png;base64,{bin_str}");
         background-size: cover;
+        background-attachment: fixed;
     }}
+
     /* Frosted glass effect for metric cards */
     div[data-testid="stMetric"] {{
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 20px;
         border-radius: 20px;
+    }}
+
+    /* FIXING TEXT COLORS - Making them pop against dark bg */
+    h1, h2, h3, p, span, label, .stMarkdown {{
+        color: #FFFFFF !important; 
+    }
+    
+    /* Gold for UVI Numbers */
+    div[data-testid="stMetricValue"] {{
+        color: #FFD700 !important;
+        font-weight: bold;
+    }}
+
+    /* Sidebar text visibility */
+    section[data-testid="stSidebar"] .stText, 
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p {{
+        color: white !important;
     }}
     </style>
     '''
-    st.markdown(page_bg_img, unsafe_allow_html=True)
+    st.markdown(style_code, unsafe_allow_html=True)
 
-set_background('stadium_bg.jpg')
+# Apply styles using your uploaded stadium image
+apply_custom_styles('11616.png')
 
+# --- 3. TOP BRANDING ---
+st.image("11618.png", use_container_width=True)
+st.title("Unified Value Index (UVI)")
 
-# --- 1. CONFIG & PARK FACTORS ---
-st.set_page_config(
-    page_title="UVI Analytics",
-    page_icon="icon.png", # This makes it look like a real app in a browser tab
-    layout="wide"
-)
-
+# --- 4. DATA LOGIC & PARK FACTORS ---
 PARK_FACTORS = {'COL': 131, 'MIA': 113, 'BOS': 109, 'PIT': 105, 'SEA': 84, 'NYY': 98}
 
 # --- 2. DATA LOADING ---
