@@ -7,24 +7,30 @@ import base64
 # --- 1. CONFIG (MUST BE FIRST) ---
 st.set_page_config(
     page_title="UVI Analytics",
-    page_icon="11617.png", 
+    page_icon="icon.png", 
     layout="wide"
 )
 
 # --- 2. BACKGROUND & STYLING ENGINE ---
 def get_base64(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+    try:
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except FileNotFoundError:
+        return None
 
 def apply_custom_styles(bg_file):
     bin_str = get_base64(bg_file)
+    
+    # Fallback to dark grey if the image isn't found
+    bg_style = f'url("data:image/png;base64,{bin_str}")' if bin_str else "linear-gradient(#0e1117, #0e1117)"
+    
     style_code = f'''
     <style>
     /* Main App Background with Dark Overlay */
     .stApp {{
-        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
-                    url("data:image/png;base64,{bin_str}");
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), {bg_style};
         background-size: cover;
         background-attachment: fixed;
     }}
@@ -59,12 +65,14 @@ def apply_custom_styles(bg_file):
     '''
     st.markdown(style_code, unsafe_allow_html=True)
 
-# Apply styles using your uploaded stadium image
-apply_custom_styles('11616.png')
+# Apply styles using your renamed stadium image
+apply_custom_styles('stadium_bg.jpg')
 
 # --- 3. TOP BRANDING ---
-st.image("11618.png", use_container_width=True)
-st.title("Unified Value Index (UVI)")
+try:
+    st.image("header.png", use_container_width=True)
+except:
+    st.title("Unified Value Index (UVI)")
 
 # --- 4. DATA LOGIC & PARK FACTORS ---
 PARK_FACTORS = {'COL': 131, 'MIA': 113, 'BOS': 109, 'PIT': 105, 'SEA': 84, 'NYY': 98}
