@@ -152,17 +152,34 @@ if not active_df.empty:
         spp = row['shift'] / row['pitch_count']
         uvi = 100 + ((spp - row['global_mean_spp']) * 150)
 
-        # Dashboard
+       # --- DYNAMIC DASHBOARD ---
         c1, c2, c3 = st.columns(3)
-        c1.metric("Historical UVI", round(uvi, 1))
+        
+        # Logic for "Historical UVI" with status indicators
+        if uvi > 150:
+            c1.metric(f"{granularity} UVI", round(uvi, 1), delta="🔥 Elite Peak", delta_color="normal")
+        elif uvi < 80:
+            c1.metric(f"{granularity} UVI", round(uvi, 1), delta="⚠️ Value Leak", delta_color="inverse")
+        else:
+            c1.metric(f"{granularity} UVI", round(uvi, 1))
+
         c2.metric("Pitch/Plate Samples", int(row['pitch_count']))
-        c3.metric("Baseline Mean", round(row['global_mean_spp'], 3), help="The league-average value shift per pitch. This is the 'zero-point' used to calculate UVI worth.")
+        c3.metric("Baseline Mean", round(row['global_mean_spp'], 3), 
+                  help="The league-average value shift per pitch. This is the 'zero-point' used to calculate UVI worth.")
 
         st.divider()
+        
+        # --- TREND CHART ---
         st.subheader("Performance Trend")
         trend = p_data.sort_values('game_date')
+        
+        # Apply the same "Smoothing" we discussed for the trend line to keep it clean
         trend['rolling_uvi'] = 100 + (((trend['shift']/trend['pitch_count']) - trend['global_mean_spp']) * 150)
+        
         fig = px.line(trend, x='game_date', y='rolling_uvi', markers=True, title="Game-by-Game UVI Stability")
+        
+        # Styling the chart for your dark theme
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
         st.plotly_chart(fig, use_container_width=True)
 
     # --- 5. PREDICTIVE SIMULATOR MODE ---
