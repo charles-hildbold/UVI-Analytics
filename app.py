@@ -28,14 +28,14 @@ def apply_custom_styles(bg_file):
     
     style_code = f'''
     <style>
-    /* Main App Background */
+    /* 1. Main App Background */
     .stApp {{
         background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), {bg_style};
         background-size: cover;
         background-attachment: fixed;
     }}
 
-    /* Frosted glass effect for metric cards */
+    /* 2. Glass Cards & Text Visibility */
     div[data-testid="stMetric"] {{
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(15px);
@@ -43,32 +43,28 @@ def apply_custom_styles(bg_file):
         padding: 20px;
         border-radius: 20px;
     }}
+    h1, h2, h3, p, span, label, .stMarkdown {{ color: #FFFFFF !important; }}
+    div[data-testid="stMetricValue"] {{ color: #FFD700 !important; font-weight: bold; }}
 
-    /* FIXING TEXT COLORS */
-    h1, h2, h3, p, span, label, .stMarkdown {{
-        color: #FFFFFF !important; 
+    /* 3. TOP BAR & SIDEBAR TOGGLE FIX */
+    header[data-testid="stHeader"] {{
+        background-color: rgba(0,0,0,0) !important; /* Makes top bar transparent */
     }}
     
-    /* Gold for UVI Numbers */
-    div[data-testid="stMetricValue"] {{
+    /* Forces the Sidebar Arrow/Hamburger to be Gold/White */
+    button[kind="header"] {{
         color: #FFD700 !important;
-        font-weight: bold;
     }}
 
-    /* --- SIDEBAR VISIBILITY FIX --- */
+    /* Sidebar Background and Widget Text */
     section[data-testid="stSidebar"] {{
-        background-color: #111111 !important; /* Deep black sidebar */
+        background-color: #111111 !important;
     }}
-    
     section[data-testid="stSidebar"] .stText, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2 {{
+    section[data-testid="stSidebar"] p {{
         color: white !important;
     }}
-
-    /* Fix for selectbox/radio text in sidebar */
     div[data-testid="stWidgetLabel"] p {{
         color: white !important;
     }}
