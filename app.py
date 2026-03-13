@@ -28,7 +28,7 @@ def apply_custom_styles(bg_file):
     
     style_code = f'''
     <style>
-    /* Main App Background with Dark Overlay */
+    /* Main App Background */
     .stApp {{
         background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), {bg_style};
         background-size: cover;
@@ -55,10 +55,21 @@ def apply_custom_styles(bg_file):
         font-weight: bold;
     }}
 
-    /* Sidebar text visibility */
+    /* --- SIDEBAR VISIBILITY FIX --- */
+    section[data-testid="stSidebar"] {{
+        background-color: #111111 !important; /* Deep black sidebar */
+    }}
+    
     section[data-testid="stSidebar"] .stText, 
     section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] p {{
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2 {{
+        color: white !important;
+    }}
+
+    /* Fix for selectbox/radio text in sidebar */
+    div[data-testid="stWidgetLabel"] p {{
         color: white !important;
     }}
     </style>
