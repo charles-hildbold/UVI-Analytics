@@ -44,3 +44,32 @@ def apply_neutralization(raw_score, team_code, role):
     else:
         # If park is 109 (Harder for pitchers), we multiply to reward the effort
         return raw_score * pf
+
+```
+
+## 📊 Key Terminology
+* **Clutch Apex:** A high-leverage event that significantly increases team win probability.
+* **Liability Leak:** A situational failure where a player's worth drops below the professional baseline.
+* **Effort Rating:** A Statcast-integrated metric tracking sprint speed and defensive range consistency.
+* **Neutralized Worth:** The final UVI score after park and weather adjustments are applied.
+
+---
+
+## 📖 How to Use This Repository
+This repository contains the source code for the **UVI Interactive Audit App**.
+
+* **app.py:** The main Streamlit interface.
+* **requirements.txt:** Necessary dependencies (Pandas, Streamlit, Plotly).
+* **data/:** Sample CSV exports from Statcast 2025.
+
+---
+
+## 📈 2025 Case Studies
+* **Paul Skenes (PIT):** Demonstrated elite consistency with a **191.6 Neutralized UVI**—nearly double the league average.
+* **Ceddanne Rafaela (BOS):** Showcased the **"Safety Net"** effect, where elite defensive range (OAA) maintained his value despite offensive volatility.
+* **Garrett Crochet (BOS):** Emerged as the **"Gold Standard"** for pitching efficiency in demanding environments.
+
+---
+
+## ✉️ Contact & Development
+Developed by **Charles "Charlie" Hildbold**, Data Analytics (M.S.).
