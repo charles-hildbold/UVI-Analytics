@@ -107,6 +107,19 @@ def load_game_data(team):
         return pd.DataFrame(), pd.DataFrame()
 
 # --- 3. UI SIDEBAR ---
+with st.sidebar.expander("📖 UVI Interpretation Guide"):
+    st.write("""
+    **What do these numbers mean?**
+    * **100:** Professional Baseline.
+    * **150+:** Elite/All-Star Efficiency.
+    * **400+ (Apex):** A dominant outlier performance, often seen in high-leverage relief outings.
+    
+    **Why the big swings?**
+    UVI is a *Rate-Based Efficiency* metric. In small samples (like a 1-inning save), a player's impact is magnified. 
+    
+    *View the 'Full Season' level for a smoothed, long-term worth audit.*
+    """)
+
 st.sidebar.title("⚾ UVI Master Control")
 mode = st.sidebar.radio("Analysis Mode", ["Historical Audit", "Predictive Simulator"])
 team = st.sidebar.selectbox("Select Team", ["PIT", "BOS"])
