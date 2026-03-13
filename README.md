@@ -1,52 +1,46 @@
-Unified Value Index (UVI) | MLB Performance Audit Engine
-Redefining Player Worth through Situational Neutralization
-The Unified Value Index (UVI) is a proprietary performance metric designed to bridge the gap between traditional outcomes (box scores) and true player efficiency. While traditional metrics like WAR and OPS provide a snapshot of results, the UVI audits the process of every pitch, accounting for environmental context, leverage, and physical effort.
+# Unified Value Index (UVI) | MLB Performance Audit Engine
 
-The Vision
-In a 162-game season, "luck" and "environment" often mask a player's true trajectory. A home run in a hitter-friendly park during a blowout is mathematically different from a high-leverage walk in a pitcher's haven. The UVI was built to identify the "Inside-Out" worth of a player by neutralizing these variables.
+### *Redefining Player Worth through Situational Neutralization*
 
-How It Works (The Three Pillars)
-Everything in the UVI starts at a Baseline of 100 (League Average). A player's score fluctuates pitch-by-pitch based on:
+The **Unified Value Index (UVI)** is a proprietary performance metric designed to bridge the gap between traditional outcomes (box scores) and true player efficiency. While traditional metrics like WAR and OPS provide a snapshot of results, the UVI audits the **process** of every pitch, accounting for environmental context, leverage, and physical effort.
 
-Plate Discipline (The Mental Game): Points are awarded or deducted based on count control. Falling behind 0-2 or winning a 3-2 battle carries significant weight.
+---
 
-Clutch Efficiency (The Impact Game): Using Win Probability Added (WPA) scaling, the UVI rewards players who "Apex" when the game is on the line, while penalizing "Value Leaks" in high-leverage failures.
+## 🚀 The Vision
+In a 162-game season, "luck" and "environment" often mask a player's true trajectory. A home run in a hitter-friendly park during a blowout is mathematically different from a high-leverage walk in a pitcher's haven. The UVI was built to identify the **"Inside-Out"** worth of a player by neutralizing these variables.
 
-The Environment (The Neutralizer): Scores are adjusted across all 30 MLB stadiums using a dynamic Park Factor dictionary. This ensures that a 120 UVI in Seattle (SEA) is equal in skill to a 120 UVI in Colorado (COL).
+---
 
-Tech Stack
-Language: Python 3.x
+## 🧠 The "Gears" of the UVI Engine
 
-Libraries: Pandas (Data manipulation), NumPy (Statistical modeling), Plotly (Data visualization)
+Everything in the UVI starts at a **Baseline of 100** (League Average). A player's score fluctuates pitch-by-pitch based on three core "Gears":
 
-Deployment: Streamlit (Mobile-responsive web interface)
+1.  **Gear 1: Discipline (The Mental Game):** Points are awarded or deducted based on count control. Winning a 3-2 battle or avoiding a 1-1 hole carries significant weight.
+2.  **Gear 2: Impact (The Clutch Apex):** Using Win Probability Added (WPA) scaling, the UVI rewards players who perform when the game is on the line, while penalizing "Value Leaks" in high-leverage failures.
+3.  **Gear 3: The Neutralizer (The Environment):** Scores are adjusted across all 30 MLB stadiums using a dynamic Park Factor dictionary. This ensures that a 120 UVI in Seattle (SEA) represents the same skill level as a 120 UVI in Colorado (COL).
 
-Data Source: Statcast / Baseball Savant raw CSV exports
+---
 
-Key Terminology
-Clutch Apex: A high-leverage event that significantly increases team win probability.
+## 🛠️ The Technical Implementation
 
-Liability Leak: A situational failure where a player's worth drops below the professional baseline.
+The engine is built in **Python 3.x** and deployed via **Streamlit**. Below is the core logic used to neutralize player worth across the league:
 
-Effort Rating: A Statcast-integrated metric tracking sprint speed and defensive range consistency.
+```python
+import pandas as pd
 
-Neutralized Worth: The final UVI score after park and weather adjustments are applied.
+# Neutralization Dictionary (100 = Neutral)
+PARK_FACTORS = {
+    'COL': 131, 'MIA': 113, 'BOS': 109, 'PIT': 105, 'BAL': 100, 'SEA': 84
+}
 
-2025 Case Studies
-Paul Skenes (PIT): Demonstrated elite consistency with a 191.6 Neutralized UVI—nearly double the league average for efficiency per pitch.
-
-Ceddanne Rafaela (BOS): Showcased the "Safety Net" effect, where elite defensive range (OAA) maintained his value despite offensive volatility.
-
-Garrett Crochet (BOS): Emerged as the "Gold Standard" for pitching efficiency, maintaining a 128.1 UVI in the demanding environment of Fenway Park.
-
-Using the App
-You can audit any player or game from the 2025 season using the live dashboard.
-
-Select Team to load the roster.
-
-Toggle between Historical Audit (Season Review) and Predictive Model (Live Scenarios).
-
-Search Player to view their Scorecard, Effort Rating, and custom 'Scout AI' summary.
-
-Contact & Development
-Developed by Charles "Charlie" Hildbold, Data Analytics (M.S.).
+def apply_neutralization(raw_score, team_code, role):
+    """
+    Adjusts the final score based on the stadium factor.
+    """
+    pf = PARK_FACTORS.get(team_code, 100) / 100
+    if role == 'Hitter':
+        # If park is 109 (Hitter friendly), we divide to neutralize the 'boost'
+        return raw_score / pf
+    else:
+        # If park is 109 (Harder for pitchers), we multiply to reward the effort
+        return raw_score * pf
