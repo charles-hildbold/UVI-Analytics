@@ -143,7 +143,7 @@ if not active_df.empty:
         c1, c2, c3 = st.columns(3)
         c1.metric("Historical UVI", round(uvi, 1))
         c2.metric("Pitch/Plate Samples", int(row['pitch_count']))
-        c3.metric("Baseline Mean", round(row['global_mean_spp'], 3))
+        c3.metric("Baseline Mean", round(row['global_mean_spp'], 3), help="The league-average value shift per pitch. This is the 'zero-point' used to calculate UVI worth.")
 
         st.divider()
         st.subheader("Performance Trend")
