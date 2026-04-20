@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data files — large CSVs should not be committed to GitHub
+# Use Git LFS or host separately if needed
+data/statcast_raw/*.csv
+data/master_hitter_audit.csv
+data/master_pitcher_audit.csv
+
+# Exception: keep sample/demo data files
+!data/sample_*.csv
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# API keys / secrets (never commit these)
+.env
+secrets.py
+config_local.py
