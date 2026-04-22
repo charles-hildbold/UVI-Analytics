@@ -6,6 +6,8 @@ No math lives anywhere else. app.py is display only.
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import urllib.request
+import os
 
 # ── FROZEN CONSTANTS (2025 full-season, all 30 teams) ──────────────────────
 P_MEAN: float = -0.01680715
@@ -131,6 +133,48 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
     return df
 
 # ── DATA LOADING ───────────────────────────────────────────────────────────
+
+# GitHub Release download URL — update this to your actual release URL after
+# creating the release and uploading the 6 CSV files as assets.
+# Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
+GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.1.0/"
+
+DATA_FILES = [
+    'master_hitter_games_2025.csv',
+    'master_pitcher_games_2025.csv',
+    'hitter_season_2025.csv',
+    'pitcher_season_2025.csv',
+    'hitter_game_stats_2025.csv',
+    'pitcher_game_stats_2025.csv',
+]
+
+def ensure_data(data_dir: str = 'data') -> None:
+    """
+    Download any missing data files from GitHub Releases.
+    Only downloads if the file doesn't already exist locally.
+    This means local runs use local files; Streamlit Cloud downloads once per session.
+    """
+    base = Path(data_dir)
+    base.mkdir(parents=True, exist_ok=True)
+
+    for fname in DATA_FILES:
+        fpath = base / fname
+        if not fpath.exists():
+            url = GITHUB_RELEASE_URL + fname
+            print(f'Downloading {fname}...')
+            try:
+                urllib.request.urlretrieve(url, fpath)
+                print(f'  ✓ {fname}')
+            except Exception as e:
+                raise RuntimeError(
+                    f"Could not download {fname} from GitHub Releases.\n"
+                    f"URL tried: {url}\n"
+                    f"Error: {e}\n\n"
+                    f"If running locally, place the CSV files in the data/ folder.\n"
+                    f"If on Streamlit Cloud, check that the GitHub Release exists "
+                    f"and the URL in uvi_engine.py is correct."
+                )
+
 def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     df['game_date']   = pd.to_datetime(df['game_date'])
     df['month_label'] = df['game_date'].dt.strftime('%B %Y')
@@ -138,6 +182,7 @@ def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def load_data(data_dir: str = 'data') -> tuple:
+    ensure_data(data_dir)
     base = Path(data_dir)
     hg = _parse_dates(pd.read_csv(base / 'master_hitter_games_2025.csv'))
     pg = _parse_dates(pd.read_csv(base / 'master_pitcher_games_2025.csv'))
@@ -147,6 +192,7 @@ def load_data(data_dir: str = 'data') -> tuple:
 
 def load_game_stats(data_dir: str = 'data') -> tuple:
     """Load traditional box score stats. Returns (hitter_stats, pitcher_stats)."""
+    ensure_data(data_dir)
     base = Path(data_dir)
     hgs = pd.read_csv(base / 'hitter_game_stats_2025.csv')
     pgs = pd.read_csv(base / 'pitcher_game_stats_2025.csv')
