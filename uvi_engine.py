@@ -137,7 +137,7 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # GitHub Release download URL — update this to your actual release URL after
 # creating the release and uploading the 6 CSV files as assets.
 # Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
-GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.1.0/"
+GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.2.0/"
 
 DATA_FILES = [
     'master_hitter_games_2025.csv',
