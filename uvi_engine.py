@@ -146,6 +146,11 @@ DATA_FILES = [
     'pitcher_season_2025.csv',
     'hitter_game_stats_2025.csv',
     'pitcher_game_stats_2025.csv',
+    'master_hitter_games_2026.csv',
+    'master_pitcher_games_2026.csv',
+    'hitter_season_2026.csv',
+    'pitcher_season_2026.csv',
+    'last_updated.txt',
 ]
 
 def ensure_data(data_dir: str = 'data') -> None:
