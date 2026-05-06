@@ -137,7 +137,7 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # GitHub Release download URL — update this to your actual release URL after
 # creating the release and uploading the 6 CSV files as assets.
 # Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
-GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.2.0/"
+GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.1.0/"
 
 DATA_FILES = [
     'master_hitter_games_2025.csv',
@@ -146,49 +146,34 @@ DATA_FILES = [
     'pitcher_season_2025.csv',
     'hitter_game_stats_2025.csv',
     'pitcher_game_stats_2025.csv',
-    'master_hitter_games_2026.csv',
-    'master_pitcher_games_2026.csv',
-    'hitter_season_2026.csv',
-    'pitcher_season_2026.csv',
-    'last_updated.txt',
 ]
 
 def ensure_data(data_dir: str = 'data') -> None:
     """
-    Download data files from GitHub Releases.
-    2025 files: download once and cache.
-    2026 files: always re-download to stay current.
+    Download any missing data files from GitHub Releases.
+    Only downloads if the file doesn't already exist locally.
+    This means local runs use local files; Streamlit Cloud downloads once per session.
     """
-    import urllib.request
     base = Path(data_dir)
     base.mkdir(parents=True, exist_ok=True)
 
-    FILES_2025 = [
-        'master_hitter_games_2025.csv',
-        'master_pitcher_games_2025.csv',
-        'hitter_season_2025.csv',
-        'pitcher_season_2025.csv',
-        'hitter_game_stats_2025.csv',
-        'pitcher_game_stats_2025.csv',
-    ]
-    FILES_2026 = [
-        'master_hitter_games_2026.csv',
-        'master_pitcher_games_2026.csv',
-        'hitter_season_2026.csv',
-        'pitcher_season_2026.csv',
-        'last_updated.txt',
-    ]
-
-    for fname in FILES_2025:
-        dest = base / fname
-        if not dest.exists():
+    for fname in DATA_FILES:
+        fpath = base / fname
+        if not fpath.exists():
             url = GITHUB_RELEASE_URL + fname
-            urllib.request.urlretrieve(url, dest)
-
-    for fname in FILES_2026:
-        dest = base / fname
-        url = GITHUB_RELEASE_URL + fname
-        urllib.request.urlretrieve(url, dest)
+            print(f'Downloading {fname}...')
+            try:
+                urllib.request.urlretrieve(url, fpath)
+                print(f'  ✓ {fname}')
+            except Exception as e:
+                raise RuntimeError(
+                    f"Could not download {fname} from GitHub Releases.\n"
+                    f"URL tried: {url}\n"
+                    f"Error: {e}\n\n"
+                    f"If running locally, place the CSV files in the data/ folder.\n"
+                    f"If on Streamlit Cloud, check that the GitHub Release exists "
+                    f"and the URL in uvi_engine.py is correct."
+                )
 
 def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     df['game_date']   = pd.to_datetime(df['game_date'])

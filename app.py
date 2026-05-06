@@ -787,7 +787,8 @@ if mode == '📊 Player Audit':
 # PAGE: LEADERBOARD
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '🏆 Leaderboard':
-    st.markdown('## 🏆 2025 Season Leaderboard')
+    season_yr = st.session_state.get('selected_season', 2025)
+    st.markdown(f'## 🏆 {season_yr} Season Leaderboard')
     st.markdown('Park-neutralized · All 30 teams · Leverage-weighted')
     st.markdown('---')
 
