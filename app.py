@@ -17,7 +17,7 @@ from uvi_engine import (
     PARK_FACTORS, TEAM_NAMES,
     P_MEAN, P_MULT, H_MEAN, H_MULT,
     LEAGUE_AVG_SPEED,
-    load_game_stats,
+    load_game_stats, load_season_data, get_last_updated,
     MIN_PITCH_PITCHER, MIN_PITCH_HITTER_FULL, MIN_PITCH_HITTER_PARTIAL,
 )
 
@@ -223,25 +223,30 @@ GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
 
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def get_data():
-    return load_data('data')
+def get_season_data(season: int):
+    return load_season_data(season, 'data')
 
 @st.cache_data(show_spinner=False)
-def get_boards():
-    _, _, hs, ps = get_data()
-    return hs, ps
+def get_data():
+    return load_data('data')
 
 @st.cache_data(show_spinner=False)
 def get_game_stats():
     return load_game_stats('data')
 
+# Season selection lives in session state so sidebar can set it
+if 'selected_season' not in st.session_state:
+    st.session_state.selected_season = 2025
+
 try:
-    hg, pg, hs, ps = get_data()
+    hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
     hgs, pgs = get_game_stats()
+    last_updated = get_last_updated('data')
     DATA_OK = True
 except Exception as e:
     DATA_OK = False
     DATA_ERR = str(e)
+    last_updated = None
 
 # ── GAUGE CHART ─────────────────────────────────────────────────────────────
 def gauge(value, title='UVI', height=200):
@@ -528,6 +533,37 @@ with st.sidebar:
         '🔮 Simulator',
         '📖 Methodology',
     ])
+
+    st.markdown('---')
+    # Season toggle
+    season_options = ['📅 2025 — Full Season', '🔴 2026 — Current Season']
+    season_choice  = st.radio('Season', season_options)
+    new_season = 2026 if '2026' in season_choice else 2025
+    if new_season != st.session_state.selected_season:
+        st.session_state.selected_season = new_season
+        st.cache_data.clear()
+        st.rerun()
+
+    # Current as of banner for 2026
+    if st.session_state.selected_season == 2026:
+        if last_updated:
+            st.markdown(
+                f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
+                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
+                unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
+                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                '🔴 <b>2026 Season</b><br>Data updating soon</div>',
+                unsafe_allow_html=True)
+    else:
+        st.markdown(
+            '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
+            '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
+            unsafe_allow_html=True)
     st.markdown('---')
 
     if mode in ['📊 Player Audit', '🔮 Simulator'] and DATA_OK:

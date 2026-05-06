@@ -199,3 +199,37 @@ def load_game_stats(data_dir: str = 'data') -> tuple:
     hgs['game_date'] = pd.to_datetime(hgs['game_date'])
     pgs['game_date'] = pd.to_datetime(pgs['game_date'])
     return hgs, pgs
+
+def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
+    """
+    Load hitter and pitcher game logs and season totals for a given season.
+    Returns (hitter_games, pitcher_games, hitter_season, pitcher_season)
+    Falls back to 2025 data if 2026 files don't exist yet.
+    """
+    base = Path(data_dir)
+    yr = str(season)
+
+    hg_path = base / f'master_hitter_games_{yr}.csv'
+    pg_path = base / f'master_pitcher_games_{yr}.csv'
+    hs_path = base / f'hitter_season_{yr}.csv'
+    ps_path = base / f'pitcher_season_{yr}.csv'
+
+    # Fall back to 2025 if 2026 files not present yet
+    if season == 2026 and not hg_path.exists():
+        return load_season_data(2025, data_dir)
+
+    hg = _parse_dates(pd.read_csv(hg_path))
+    pg = _parse_dates(pd.read_csv(pg_path))
+    hs = pd.read_csv(hs_path)
+    ps = pd.read_csv(ps_path)
+    return hg, pg, hs, ps
+
+def get_last_updated(data_dir: str = 'data') -> str:
+    """Return the 'Current as of' date string from last_updated.txt.
+    Returns None if file doesn't exist (2025 historical data).
+    """
+    path = Path(data_dir) / 'last_updated.txt'
+    if path.exists():
+        with open(path) as f:
+            return f.read().strip()
+    return None
