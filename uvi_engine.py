@@ -139,7 +139,7 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
 GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.2.0/"
 
-DATA_FILES = [
+DATA_FILES_2025 = [
     'master_hitter_games_2025.csv',
     'master_pitcher_games_2025.csv',
     'hitter_season_2025.csv',
@@ -148,16 +148,21 @@ DATA_FILES = [
     'pitcher_game_stats_2025.csv',
 ]
 
+DATA_FILES_2026 = [
+    'master_hitter_games_2026.csv',
+    'master_pitcher_games_2026.csv',
+    'hitter_season_2026.csv',
+    'pitcher_season_2026.csv',
+    'last_updated.txt',
+]
+
+DATA_FILES = DATA_FILES_2025 + DATA_FILES_2026
 def ensure_data(data_dir: str = 'data') -> None:
-    """
-    Download any missing data files from GitHub Releases.
-    Only downloads if the file doesn't already exist locally.
-    This means local runs use local files; Streamlit Cloud downloads once per session.
-    """
     base = Path(data_dir)
     base.mkdir(parents=True, exist_ok=True)
 
-    for fname in DATA_FILES:
+    # 2025 files — download once and cache
+    for fname in DATA_FILES_2025:
         fpath = base / fname
         if not fpath.exists():
             url = GITHUB_RELEASE_URL + fname
@@ -168,12 +173,18 @@ def ensure_data(data_dir: str = 'data') -> None:
             except Exception as e:
                 raise RuntimeError(
                     f"Could not download {fname} from GitHub Releases.\n"
-                    f"URL tried: {url}\n"
-                    f"Error: {e}\n\n"
-                    f"If running locally, place the CSV files in the data/ folder.\n"
-                    f"If on Streamlit Cloud, check that the GitHub Release exists "
-                    f"and the URL in uvi_engine.py is correct."
+                    f"URL tried: {url}\nError: {e}"
                 )
+
+    # 2026 files — always re-download to stay current
+    for fname in DATA_FILES_2026:
+        fpath = base / fname
+        url = GITHUB_RELEASE_URL + fname
+        try:
+            urllib.request.urlretrieve(url, fpath)
+        except Exception as e:
+            if not fpath.exists():
+                print(f'Warning: could not download {fname}: {e}')
 
 def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     df['game_date']   = pd.to_datetime(df['game_date'])
@@ -199,6 +210,26 @@ def load_game_stats(data_dir: str = 'data') -> tuple:
     hgs['game_date'] = pd.to_datetime(hgs['game_date'])
     pgs['game_date'] = pd.to_datetime(pgs['game_date'])
     return hgs, pgs
+
+def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
+    ensure_data(data_dir)
+    base = Path(data_dir)
+    yr = str(season)
+    hg_path = base / f'master_hitter_games_{yr}.csv'
+    if season == 2026 and not hg_path.exists():
+        return load_season_data(2025, data_dir)
+    hg = _parse_dates(pd.read_csv(base / f'master_hitter_games_{yr}.csv'))
+    pg = _parse_dates(pd.read_csv(base / f'master_pitcher_games_{yr}.csv'))
+    hs = pd.read_csv(base / f'hitter_season_{yr}.csv')
+    ps = pd.read_csv(base / f'pitcher_season_{yr}.csv')
+    return hg, pg, hs, ps
+
+def get_last_updated(data_dir: str = 'data') -> str:
+    path = Path(data_dir) / 'last_updated.txt'
+    if path.exists():
+        with open(path) as f:
+            return f.read().strip()
+    return None
 
 def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     """
