@@ -137,9 +137,9 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # GitHub Release download URL — update this to your actual release URL after
 # creating the release and uploading the 6 CSV files as assets.
 # Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
-GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.1.0/"
+GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.2.0/"
 
-DATA_FILES = [
+DATA_FILES_2025 = [
     'master_hitter_games_2025.csv',
     'master_pitcher_games_2025.csv',
     'hitter_season_2025.csv',
@@ -148,6 +148,15 @@ DATA_FILES = [
     'pitcher_game_stats_2025.csv',
 ]
 
+DATA_FILES_2026 = [
+    'master_hitter_games_2026.csv',
+    'master_pitcher_games_2026.csv',
+    'hitter_season_2026.csv',
+    'pitcher_season_2026.csv',
+    'last_updated.txt',
+]
+
+DATA_FILES = DATA_FILES_2025 + DATA_FILES_2026
 def ensure_data(data_dir: str = 'data') -> None:
     import requests
     base = Path(data_dir)
