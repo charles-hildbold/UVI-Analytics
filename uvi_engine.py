@@ -121,10 +121,7 @@ def get_player_games(games_df: pd.DataFrame, player: str, role: str) -> pd.DataF
 
 def get_leaderboard(season_df: pd.DataFrame, role: str,
                     min_games: int = 5, team: str = 'All') -> pd.DataFrame:
-    if role == 'hitter':
-        score_col = 'complete_uvi' if 'complete_uvi' in season_df.columns else 'batting_uvi'
-    else:
-        score_col = 'season_uvi'
+    score_col = 'complete_uvi' if role == 'hitter' else 'season_uvi'
     df = season_df[season_df['games'] >= min_games].copy()
     if team != 'All':
         df = df[df['team_tag'] == team]
@@ -142,7 +139,7 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
 GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.1.0/"
 
-DATA_FILES_2025 = [
+DATA_FILES = [
     'master_hitter_games_2025.csv',
     'master_pitcher_games_2025.csv',
     'hitter_season_2025.csv',
@@ -151,66 +148,36 @@ DATA_FILES_2025 = [
     'pitcher_game_stats_2025.csv',
 ]
 
-DATA_FILES_2026 = [
-    'master_hitter_games_2026.csv',
-    'master_pitcher_games_2026.csv',
-    'hitter_season_2026.csv',
-    'pitcher_season_2026.csv',
-    'last_updated.txt',
-]
-
-DATA_FILES = DATA_FILES_2025 + DATA_FILES_2026
-
-def _download_file(url: str, dest: Path) -> bool:
-    """Download a file following redirects. Returns True on success."""
-    try:
-        import requests as req
-        r = req.get(url, allow_redirects=True, timeout=60)
-        if r.status_code == 200:
-            dest.write_bytes(r.content)
-            return True
-        return False
-    except Exception:
-        # Fall back to urllib if requests not available
-        try:
-            urllib.request.urlretrieve(url, dest)
-            return True
-        except Exception:
-            return False
-
 def ensure_data(data_dir: str = 'data') -> None:
-    """
-    Download data files from GitHub Releases.
-    - 2025 files: download once and cache (large, never change)
-    - 2026 files: always re-download (updated daily)
-    """
+    import requests
     base = Path(data_dir)
     base.mkdir(parents=True, exist_ok=True)
 
-    # 2025 files — download once only
     for fname in DATA_FILES_2025:
         fpath = base / fname
         if not fpath.exists():
             url = GITHUB_RELEASE_URL + fname
             print(f'Downloading {fname}...')
-            ok = _download_file(url, fpath)
-            if ok:
+            r = requests.get(url, allow_redirects=True, timeout=120)
+            if r.status_code == 200:
+                fpath.write_bytes(r.content)
                 print(f'  ✓ {fname}')
             else:
                 raise RuntimeError(
-                    f"Could not download {fname} from GitHub Releases.\n"
-                    f"URL tried: {url}\n"
-                    f"Check that GitHub Release v2.2.0 exists and all "
-                    f"files are attached as assets."
+                    f"Could not download {fname}. "
+                    f"Status: {r.status_code}. URL: {url}"
                 )
 
-    # 2026 files — always re-download so live data stays current
     for fname in DATA_FILES_2026:
         fpath = base / fname
         url = GITHUB_RELEASE_URL + fname
-        ok = _download_file(url, fpath)
-        if not ok and not fpath.exists():
-            print(f'Warning: could not download {fname}')
+        try:
+            r = requests.get(url, allow_redirects=True, timeout=120)
+            if r.status_code == 200:
+                fpath.write_bytes(r.content)
+        except Exception as e:
+            if not fpath.exists():
+                print(f'Warning: could not download {fname}: {e}')
 
 def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     df['game_date']   = pd.to_datetime(df['game_date'])
@@ -241,8 +208,8 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     """
     Load hitter and pitcher game logs and season totals for a given season.
     Returns (hitter_games, pitcher_games, hitter_season, pitcher_season)
+    Falls back to 2025 data if 2026 files don't exist yet.
     """
-    ensure_data(data_dir)
     base = Path(data_dir)
     yr = str(season)
 
@@ -251,7 +218,7 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     hs_path = base / f'hitter_season_{yr}.csv'
     ps_path = base / f'pitcher_season_{yr}.csv'
 
-    # Fall back to 2025 if 2026 files not present
+    # Fall back to 2025 if 2026 files not present yet
     if season == 2026 and not hg_path.exists():
         return load_season_data(2025, data_dir)
 
@@ -262,7 +229,9 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     return hg, pg, hs, ps
 
 def get_last_updated(data_dir: str = 'data') -> str:
-    """Return the Current as of date string from last_updated.txt."""
+    """Return the 'Current as of' date string from last_updated.txt.
+    Returns None if file doesn't exist (2025 historical data).
+    """
     path = Path(data_dir) / 'last_updated.txt'
     if path.exists():
         with open(path) as f:
