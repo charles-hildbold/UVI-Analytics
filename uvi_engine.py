@@ -1,6 +1,6 @@
 """
-uvi_engine.py  —  Single source of truth for ALL UVI calculations.
-No math lives anywhere else. app.py is display only.
+uvi_engine.py — Core calculation engine for the Unified Value Index (UVI).
+All math lives here. app.py handles display only.
 """
 
 import pandas as pd
@@ -9,7 +9,9 @@ from pathlib import Path
 import urllib.request
 import os
 
-# ── FROZEN CONSTANTS (2025 full-season, all 30 teams) ──────────────────────
+# Constants derived from the full 2025 MLB season across all 30 teams.
+# These are frozen at season end and never change — any recalibration
+# requires a version bump and full reprocessing of the raw data.
 P_MEAN: float = -0.01680715
 P_MULT: float =  4723.5424
 H_MEAN: float =  0.01343597
@@ -19,13 +21,17 @@ LEAGUE_AVG_SPEED: float = 27.3204
 LEAGUE_AVG_BURST: float =  2.5785
 LEAGUE_AVG_HS:    float = 94.3784
 LEAGUE_STD_HS:    float =  7.0331
-# Reliability thresholds
-MIN_PITCH_PITCHER:       int = 15  # pitchers: short outings are small sample
-MIN_PITCH_HITTER_FULL:   int = 10  # hitters: 10+ pitches = reliable (3-4 PA starter)
-MIN_PITCH_HITTER_PARTIAL: int = 6  # hitters: 6-9 pitches = partial game, soft caution
-MIN_PITCH_RELIABILITY:   int = 10  # default fallback
 
-# ── PARK FACTORS ───────────────────────────────────────────────────────────
+# Minimum pitch thresholds for reliability scoring.
+# Derived from standard deviation analysis across the 2025 season —
+# below these counts the variance is too high to treat scores as meaningful.
+MIN_PITCH_PITCHER:        int = 15
+MIN_PITCH_HITTER_FULL:    int = 10
+MIN_PITCH_HITTER_PARTIAL: int = 6
+MIN_PITCH_RELIABILITY:    int = 10
+
+# Park factors applied at the individual pitch level, not as a season-end adjustment.
+# Derived from multi-year run environment data for each stadium.
 PARK_FACTORS: dict = {
     'COL':1.15,'BOS':1.07,'CIN':1.06,'PHI':1.05,'TEX':1.04,
     'CHC':1.03,'NYY':1.03,'MIL':1.02,'HOU':1.01,'ATL':1.01,
@@ -53,15 +59,15 @@ TEAM_NAMES: dict = {
     'TOR':'Toronto Blue Jays','WSH':'Washington Nationals',
 }
 
-# ── TIERS ──────────────────────────────────────────────────────────────────
-# Baseball-native language — terms a scout or GM would actually use
+# UVI score tiers use baseball-native language — the same terms
+# a front office would use in an actual roster conversation.
 def uvi_tier(score: float) -> tuple:
-    if score >= 160: return "Impact Player",    "#C9A84C"
-    if score >= 130: return "Proven Starter",   "#52BE80"
-    if score >= 115: return "Solid Contributor","#5DADE2"
-    if score >= 90:  return "Roster Average",   "#AAB7B8"
-    if score >= 70:  return "Fringe Roster",    "#E67E22"
-    return                   "DFA Candidate",   "#E74C3C"
+    if score >= 160: return "Impact Player",     "#C9A84C"
+    if score >= 130: return "Proven Starter",    "#52BE80"
+    if score >= 115: return "Solid Contributor", "#5DADE2"
+    if score >= 90:  return "Roster Average",    "#AAB7B8"
+    if score >= 70:  return "Fringe Roster",     "#E67E22"
+    return                   "DFA Candidate",    "#E74C3C"
 
 def uvi_emoji(score: float) -> str:
     if score >= 160: return "🔥"
@@ -72,7 +78,14 @@ def uvi_emoji(score: float) -> str:
     return "⚠️"
 
 # ── CORE CALCULATIONS ──────────────────────────────────────────────────────
+
 def compute_span_uvi(df: pd.DataFrame, role: str) -> float:
+    """
+    Calculates UVI for any span of games by summing weighted shifts
+    and dividing by total pitches. This is the correct aggregation method —
+    averaging game-level UVI scores would incorrectly weight short outings
+    equally with full games.
+    """
     total_shift   = df['shift'].sum()
     total_pitches = df['pitch_count'].sum()
     if total_pitches == 0:
@@ -85,6 +98,7 @@ def compute_span_uvi(df: pd.DataFrame, role: str) -> float:
     return float(raw / pf if role == 'hitter' else raw * pf)
 
 def compute_game_uvi_col(df: pd.DataFrame, role: str) -> pd.Series:
+    """Calculates a UVI score for each individual game row in a DataFrame."""
     mean = H_MEAN if role == 'hitter' else P_MEAN
     mult = H_MULT if role == 'hitter' else P_MULT
     spp  = df['shift'] / df['pitch_count'].replace(0, np.nan)
@@ -93,6 +107,11 @@ def compute_game_uvi_col(df: pd.DataFrame, role: str) -> pd.Series:
     return (raw / pf if role == 'hitter' else raw * pf).round(1)
 
 def compute_rolling_uvi(df: pd.DataFrame, role: str, window: int = 7) -> pd.DataFrame:
+    """
+    Calculates a rolling UVI trend over a sliding window of games.
+    Also assigns reliability levels based on pitch count thresholds —
+    low sample games are flagged so the UI can display them appropriately.
+    """
     df   = df.sort_values('game_date').copy()
     mean = H_MEAN if role == 'hitter' else P_MEAN
     mult = H_MULT if role == 'hitter' else P_MULT
@@ -102,7 +121,6 @@ def compute_rolling_uvi(df: pd.DataFrame, role: str, window: int = 7) -> pd.Data
     pf   = df['team_tag'].map(PARK_FACTORS).fillna(1.0)
     df['rolling_uvi'] = (raw / pf if role == 'hitter' else raw * pf).round(1)
     df['game_uvi']    = compute_game_uvi_col(df, role)
-    # Two-tier reliability for hitters, single threshold for pitchers
     if role == 'hitter':
         df['reliable'] = df['pitch_count'] >= MIN_PITCH_HITTER_FULL
         df['reliability_level'] = 'low'
@@ -114,6 +132,7 @@ def compute_rolling_uvi(df: pd.DataFrame, role: str, window: int = 7) -> pd.Data
     return df
 
 def get_player_games(games_df: pd.DataFrame, player: str, role: str) -> pd.DataFrame:
+    """Returns all game log rows for a specific player with game UVI calculated."""
     df = games_df[games_df['player_name'] == player].copy()
     df = df.sort_values('game_date').reset_index(drop=True)
     df['game_uvi'] = compute_game_uvi_col(df, role)
@@ -121,7 +140,16 @@ def get_player_games(games_df: pd.DataFrame, player: str, role: str) -> pd.DataF
 
 def get_leaderboard(season_df: pd.DataFrame, role: str,
                     min_games: int = 5, team: str = 'All') -> pd.DataFrame:
-    score_col = 'complete_uvi' if role == 'hitter' else 'season_uvi'
+    """
+    Builds the leaderboard for a given role and season.
+    Uses complete_uvi for hitters when available (includes speed, defense,
+    hustle, and burst components), falling back to batting_uvi for 2026
+    where component data may still be updating.
+    """
+    if role == 'hitter':
+        score_col = 'complete_uvi' if 'complete_uvi' in season_df.columns else 'batting_uvi'
+    else:
+        score_col = 'season_uvi'
     df = season_df[season_df['games'] >= min_games].copy()
     if team != 'All':
         df = df[df['team_tag'] == team]
@@ -134,9 +162,10 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 
 # ── DATA LOADING ───────────────────────────────────────────────────────────
 
-# GitHub Release download URL — update this to your actual release URL after
-# creating the release and uploading the 6 CSV files as assets.
-# Format: https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v2.1.0/
+# Data files are hosted on GitHub Releases to keep the repository lightweight.
+# The app downloads them automatically on first load and caches them locally.
+# 2025 files are downloaded once and cached. 2026 files re-download every
+# session to stay current with the daily update pipeline.
 GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v2.2.0/"
 
 DATA_FILES_2025 = [
@@ -157,7 +186,14 @@ DATA_FILES_2026 = [
 ]
 
 DATA_FILES = DATA_FILES_2025 + DATA_FILES_2026
+
 def ensure_data(data_dir: str = 'data') -> None:
+    """
+    Downloads missing data files from GitHub Releases.
+    2025 season files are cached after the first download since they never change.
+    2026 season files re-download every session to pick up the latest daily update.
+    Uses the requests library to handle GitHub's redirect to S3 storage correctly.
+    """
     import requests
     base = Path(data_dir)
     base.mkdir(parents=True, exist_ok=True)
@@ -189,12 +225,14 @@ def ensure_data(data_dir: str = 'data') -> None:
                 print(f'Warning: could not download {fname}: {e}')
 
 def _parse_dates(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds game_date, month_label, and month_sort columns for timeline display."""
     df['game_date']   = pd.to_datetime(df['game_date'])
     df['month_label'] = df['game_date'].dt.strftime('%B %Y')
     df['month_sort']  = df['game_date'].dt.to_period('M').astype(str)
     return df
 
 def load_data(data_dir: str = 'data') -> tuple:
+    """Loads 2025 full season game logs and season totals for hitters and pitchers."""
     ensure_data(data_dir)
     base = Path(data_dir)
     hg = _parse_dates(pd.read_csv(base / 'master_hitter_games_2025.csv'))
@@ -204,7 +242,7 @@ def load_data(data_dir: str = 'data') -> tuple:
     return hg, pg, hs, ps
 
 def load_game_stats(data_dir: str = 'data') -> tuple:
-    """Load traditional box score stats. Returns (hitter_stats, pitcher_stats)."""
+    """Loads traditional box score stats for the 2025 season."""
     ensure_data(data_dir)
     base = Path(data_dir)
     hgs = pd.read_csv(base / 'hitter_game_stats_2025.csv')
@@ -215,23 +253,19 @@ def load_game_stats(data_dir: str = 'data') -> tuple:
 
 def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     """
-    Load hitter and pitcher game logs and season totals for a given season.
-    Returns (hitter_games, pitcher_games, hitter_season, pitcher_season)
-    Falls back to 2025 data if 2026 files not present yet.
+    Loads game logs and season totals for the requested season.
+    If 2026 files haven't been downloaded yet, falls back to 2025 data
+    rather than crashing — this handles edge cases during initial deployment.
     """
     ensure_data(data_dir)
     base = Path(data_dir)
     yr = str(season)
-
     hg_path = base / f'master_hitter_games_{yr}.csv'
     pg_path = base / f'master_pitcher_games_{yr}.csv'
     hs_path = base / f'hitter_season_{yr}.csv'
     ps_path = base / f'pitcher_season_{yr}.csv'
-
-    # Fall back to 2025 if 2026 files not present yet
     if season == 2026 and not hg_path.exists():
         return load_season_data(2025, data_dir)
-
     hg = _parse_dates(pd.read_csv(hg_path))
     pg = _parse_dates(pd.read_csv(pg_path))
     hs = pd.read_csv(hs_path)
@@ -239,8 +273,10 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     return hg, pg, hs, ps
 
 def get_last_updated(data_dir: str = 'data') -> str:
-    """Return the 'Current as of' date string from last_updated.txt.
-    Returns None if file doesn't exist (2025 historical data).
+    """
+    Returns the date string from last_updated.txt for display in the app.
+    This file is written by the daily update script each morning after
+    pulling the previous night's games. Returns None for the 2025 historical season.
     """
     path = Path(data_dir) / 'last_updated.txt'
     if path.exists():
