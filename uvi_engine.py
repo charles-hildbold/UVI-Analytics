@@ -208,8 +208,9 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     """
     Load hitter and pitcher game logs and season totals for a given season.
     Returns (hitter_games, pitcher_games, hitter_season, pitcher_season)
-    Falls back to 2025 data if 2026 files don't exist yet.
+    Falls back to 2025 data if 2026 files not present yet.
     """
+    ensure_data(data_dir)
     base = Path(data_dir)
     yr = str(season)
 
