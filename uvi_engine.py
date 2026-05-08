@@ -183,6 +183,9 @@ DATA_FILES_2026 = [
     'hitter_season_2026.csv',
     'pitcher_season_2026.csv',
     'last_updated.txt',
+    'outs_above_average_2026.csv',
+    'running_splits_2026.csv',
+    'sprint_speed_2026.csv',
 ]
 
 DATA_FILES = DATA_FILES_2025 + DATA_FILES_2026
