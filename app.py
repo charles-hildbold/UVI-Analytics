@@ -234,6 +234,7 @@ def get_data():
 def get_game_stats():
     return load_game_stats('data')
 
+# Season selection lives in session state so sidebar can set it
 if 'selected_season' not in st.session_state:
     st.session_state.selected_season = 2025
 
@@ -532,36 +533,35 @@ with st.sidebar:
         '🔮 Simulator',
         '📖 Methodology',
     ])
+
     st.markdown('---')
-    season_choice = st.radio('Season', [
-        '📅 2025 — Full Season',
-        '🔴 2026 — Current Season',
-    ])
+    # Season toggle
+    season_options = ['📅 2025 — Full Season', '🔴 2026 — Current Season']
+    season_choice  = st.radio('Season', season_options)
     new_season = 2026 if '2026' in season_choice else 2025
     if new_season != st.session_state.selected_season:
         st.session_state.selected_season = new_season
         st.cache_data.clear()
         st.rerun()
+
+    # Current as of banner for 2026
     if st.session_state.selected_season == 2026:
         if last_updated:
             st.markdown(
-                f'<div style="background:rgba(201,168,76,0.12);border:1px solid '
-                f'rgba(201,168,76,0.3);border-radius:6px;padding:8px 12px;'
-                f'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
+                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
                 unsafe_allow_html=True)
         else:
             st.markdown(
-                '<div style="background:rgba(201,168,76,0.08);border:1px solid '
-                'rgba(201,168,76,0.2);border-radius:6px;padding:8px 12px;'
-                'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
+                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 '🔴 <b>2026 Season</b><br>Data updating soon</div>',
                 unsafe_allow_html=True)
     else:
         st.markdown(
-            '<div style="background:rgba(255,255,255,0.04);border:1px solid '
-            'rgba(255,255,255,0.08);border-radius:6px;padding:8px 12px;'
-            'margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
+            '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
             '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
             unsafe_allow_html=True)
     st.markdown('---')
@@ -787,26 +787,63 @@ if mode == '📊 Player Audit':
 # PAGE: LEADERBOARD
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '🏆 Leaderboard':
-    st.markdown('## 🏆 2025 Season Leaderboard')
+    season_yr = st.session_state.get('selected_season', 2025)
+    st.markdown(f'## 🏆 {season_yr} Season Leaderboard')
     st.markdown('Park-neutralized · All 30 teams · Leverage-weighted')
     st.markdown('---')
 
-    lb_role = st.radio('Role', ['Hitter','Pitcher'], horizontal=True, key='lb_r')
+    lb_role = st.radio('Role', ['Hitter', 'Starting Pitcher', 'All Pitchers'],
+                       horizontal=True, key='lb_r')
+
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        teams_all  = ['All'] + sorted(TEAM_NAMES.keys())
-        sel_t      = st.selectbox('Filter by Team', teams_all, key='lb_t')
+        teams_all = ['All'] + sorted(TEAM_NAMES.keys())
+        sel_t     = st.selectbox('Filter by Team', teams_all, key='lb_t')
     with col_f2:
-        min_g = st.slider('Min games', 5, 50, 10, key='lb_g')
+        if lb_role == 'Hitter':
+            min_label   = 'Min pitches seen'
+            min_default = 50
+            min_max     = 300
+        elif lb_role == 'Starting Pitcher':
+            min_label   = 'Min pitches thrown'
+            min_default = 150
+            min_max     = 600
+        else:
+            min_label   = 'Min pitches thrown'
+            min_default = 30
+            min_max     = 300
+        min_p = st.slider(min_label, 10, min_max, min_default, key='lb_g')
     with col_f3:
         top_n = st.slider('Show top N', 10, 50, 25, key='lb_n')
 
-    board   = get_leaderboard(hs if lb_role=='Hitter' else ps, lb_role.lower(), min_g, sel_t)
+    # Classify pitchers by role based on avg pitches per game
+    if lb_role != 'Hitter':
+        ps_copy = ps.copy()
+        ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0, 1)
+        ps_copy['pitcher_role'] = ps_copy['avg_ppg'].apply(
+            lambda x: 'starter' if x >= 45 else 'reliever'
+        )
+        if lb_role == 'Starting Pitcher':
+            src_df = ps_copy[ps_copy['pitcher_role'] == 'starter']
+        else:
+            src_df = ps_copy
+        src_df = src_df[src_df['total_pitches'] >= min_p]
+        role_key = 'pitcher'
+    else:
+        src_df = hs[hs['total_pitches'] >= min_p]
+        role_key = 'hitter'
+
+    if sel_t != 'All':
+        src_df = src_df[src_df['team_tag'] == sel_t]
+
+    board = get_leaderboard(src_df, role_key, 0, 'All')
+
     if lb_role == 'Hitter':
         score_c = 'complete_uvi' if 'complete_uvi' in board.columns else 'batting_uvi'
     else:
         score_c = 'season_uvi'
-    board   = board.head(top_n)
+
+    board = board.head(top_n)
 
     # Top 5 cards
     st.markdown('### Top Performers')
@@ -831,39 +868,40 @@ elif mode == '🏆 Leaderboard':
     st.markdown('---')
 
     # Bar chart
-    colors = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
+    colors_bar = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
+    role_label = lb_role + 's' if not lb_role.endswith('r') else lb_role + 's'
     fig = go.Figure(go.Bar(
         x=board['player_name'], y=board[score_c],
-        marker_color=colors,
+        marker_color=colors_bar,
         text=[f"{v:.0f}" for v in board[score_c]],
         textposition='outside',
-        textfont=dict(color='#E8E8E8',size=9,family='Barlow Condensed'),
+        textfont=dict(color='#E8E8E8', size=9, family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b> (%{customdata})<br>UVI: %{y:.1f}<extra></extra>',
         customdata=board['team_tag'],
     ))
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.4)')
     fig.update_layout(**PLOT, height=320,
-        title=dict(text=f'Top {len(board)} {lb_role}s — 2025 Season UVI',
-                   font=dict(size=13,family='Barlow Condensed'), x=0),
+        title=dict(text=f'Top {len(board)} {lb_role}s — {season_yr} UVI',
+                   font=dict(size=13, family='Barlow Condensed'), x=0),
         xaxis_tickangle=-40, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
     # Full table
     st.markdown('### Full Rankings')
-    show_cols  = ['player_name','team_tag', score_c,'tier','games','total_pitches']
-    col_labels = ['Player','Team','UVI','Tier','Games','Pitches']
+    show_cols  = ['player_name', 'team_tag', score_c, 'tier', 'games', 'total_pitches']
+    col_labels = ['Player', 'Team', 'UVI', 'Tier', 'Games', 'Pitches']
     if lb_role == 'Hitter':
         if 'speed_bonus' in board.columns:
-            show_cols.append('speed_bonus');  col_labels.append('Speed Bonus')
+            show_cols.append('speed_bonus');   col_labels.append('Speed Bonus')
         if 'defense_bonus' in board.columns:
             show_cols.append('defense_bonus'); col_labels.append('Defense Bonus')
     tbl = board[show_cols].copy()
     tbl.columns = col_labels
     st.dataframe(tbl, use_container_width=True, height=450)
-    season_yr = st.session_state.get('selected_season', 2025)
+
     csv = tbl.to_csv(index=False)
     st.download_button('⬇ Download Rankings', csv,
-                       file_name=f'uvi_{season_yr}_{lb_role.lower()}s.csv',
+                       file_name=f'uvi_{season_yr}_{lb_role.lower().replace(" ","_")}s.csv',
                        mime='text/csv')
 
 # ────────────────────────────────────────────────────────────────────────────
