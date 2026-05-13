@@ -416,11 +416,10 @@ def component_breakdown(row):
 
 # ── GAME LOG TABLE ────────────────────────────────────────────────────────────
 def game_log_table(df, role):
-    log = df[['game_date','team_tag','game_uvi','pitch_count','shift']].copy()
+    log = df[['game_date','team_tag','game_uvi','pitch_count']].copy()
     log['game_date'] = log['game_date'].dt.strftime('%Y-%m-%d')
     log['game_uvi']  = log['game_uvi'].round(1)
-    log['shift']     = log['shift'].round(3)
-    log.columns      = ['Date','Team','UVI','Pitches','Shift']
+    log.columns      = ['Date','Team','UVI','Pitches']
     log = log.sort_values('Date', ascending=False)
     return log
 
