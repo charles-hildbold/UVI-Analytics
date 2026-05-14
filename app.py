@@ -1094,7 +1094,7 @@ elif mode == '🔮 Simulator':
     col_info, col_g = st.columns([3,2])
     with col_info:
         season_yr = st.session_state.get('selected_season', 2026)
-    st.markdown(f'### {season_yr} Career Baseline')
+        st.markdown(f'### {season_yr} Career Baseline')
         c1,c2 = st.columns(2)
         c1.metric('Season UVI', f'{career_uvi:.1f}')
         c2.metric('Home Park Factor', f'{home_pf:.2f}')
