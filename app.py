@@ -236,7 +236,7 @@ def get_game_stats():
 
 # Season selection lives in session state so sidebar can set it
 if 'selected_season' not in st.session_state:
-    st.session_state.selected_season = 2025
+    st.session_state.selected_season = 2026
 
 try:
     hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
