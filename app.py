@@ -537,7 +537,11 @@ with st.sidebar:
     st.markdown('---')
     # Season toggle
     season_options = ['📅 2025 — Full Season', '🔴 2026 — Current Season']
-    season_choice  = st.radio('Season', season_options)
+    
+    # Tell the radio button to select index 1 (2026) if that is our session state
+    default_idx = 1 if st.session_state.selected_season == 2026 else 0
+    season_choice  = st.radio('Season', season_options, index=default_idx)
+    
     new_season = 2026 if '2026' in season_choice else 2025
     if new_season != st.session_state.selected_season:
         st.session_state.selected_season = new_season
@@ -1089,7 +1093,8 @@ elif mode == '🔮 Simulator':
 
     col_info, col_g = st.columns([3,2])
     with col_info:
-        st.markdown('### 2025 Career Baseline')
+        season_yr = st.session_state.get('selected_season', 2026)
+    st.markdown(f'### {season_yr} Career Baseline')
         c1,c2 = st.columns(2)
         c1.metric('Season UVI', f'{career_uvi:.1f}')
         c2.metric('Home Park Factor', f'{home_pf:.2f}')
@@ -1164,7 +1169,7 @@ elif mode == '🔮 Simulator':
     fig.update_layout(**PLOT, height=240, showlegend=False,
         title=dict(text='Adjustment Breakdown', font=dict(size=13,family='Barlow Condensed'), x=0))
     st.plotly_chart(fig, use_container_width=True)
-    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their 2025 season average.')
+    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their {season_yr} season average.')
 
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
