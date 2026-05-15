@@ -542,22 +542,19 @@ with st.sidebar:
         if last_updated:
             st.markdown(
                 f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
-                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
-#C9A84C;">'
+                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
                 unsafe_allow_html=True)
         else:
             st.markdown(
                 '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
-                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
-#C9A84C;">'
+                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 '🔴 <b>2026 Season</b><br>Data updating soon</div>',
                 unsafe_allow_html=True)
     else:
         st.markdown(
             '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
-            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
-#6B7A8D;">'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
             '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
             unsafe_allow_html=True)
     st.markdown('---')
@@ -641,8 +638,7 @@ if mode == '🏠 Home':
         with snap_cols[0]:
             st.markdown(f"""
             <div class="stat-card">
-                <div style="font-size:0.7rem;color:
-#6B7A8D;margin-bottom:4px">
+                <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
                     TOP HITTER · {top_h['team_tag']}</div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
                     font-weight:700;margin-bottom:6px">{top_h['player_name']}</div>
@@ -657,8 +653,7 @@ if mode == '🏠 Home':
             with snap_cols[1]:
                 st.markdown(f"""
                 <div class="stat-card">
-                    <div style="font-size:0.7rem;color:
-#6B7A8D;margin-bottom:4px">
+                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
                         TOP STARTER · {top_p['team_tag']}</div>
                     <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
                         font-weight:700;margin-bottom:6px">{top_p['player_name']}</div>
@@ -673,15 +668,13 @@ if mode == '🏠 Home':
             with snap_cols[2]:
                 st.markdown(f"""
                 <div class="stat-card">
-                    <div style="font-size:0.7rem;color:
-#6B7A8D;margin-bottom:4px">
+                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
                         BIGGEST RISER · LAST 7 DAYS · {top_riser.get('team_tag','')}</div>
                     <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
                         font-weight:700;margin-bottom:6px">{top_riser['player_name']}</div>
                     <div class="value" style="color:{r_color}">{r_score:.0f}</div>
                     <div class="sub">{uvi_emoji(r_score)} {r_tier}</div>
-                    <div class="sub" style="color:
-#52BE80">↑ {top_riser['delta']:+.1f} vs season avg</div>
+                    <div class="sub" style="color:#52BE80">↑ {top_riser['delta']:+.1f} vs season avg</div>
                 </div>
                 """, unsafe_allow_html=True)
         st.markdown('---')
@@ -708,8 +701,7 @@ if mode == '🏠 Home':
                 teams_display = r.get('all_teams', r.get('team_tag', ''))
                 st.markdown(f"""
                 <div class="stat-card" style="max-width:400px">
-                    <div style="font-size:0.7rem;color:
-#6B7A8D;margin-bottom:4px">
+                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
                         {search_role.upper()} · {teams_display}</div>
                     <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;
                         font-weight:700;margin-bottom:8px">{search_player}</div>
@@ -744,8 +736,7 @@ if mode == '🏠 Home':
             st.dataframe(top10p, use_container_width=True, height=370)
         st.markdown('---')
         st.markdown(
-            f'<div style="text-align:center;font-size:0.8rem;color:
-#6B7A8D">'
+            f'<div style="text-align:center;font-size:0.8rem;color:#6B7A8D">'
             f'UVI measures every pitch weighted by count leverage and win probability. '
             f'100 = league average · Each 50 points = 1 standard deviation · '
             f'Data through {last_updated if last_updated else season_yr}</div>',
@@ -812,8 +803,7 @@ if mode == '📊 Player Audit':
                             use_container_width=True)
         with col_gauge:
             st.plotly_chart(gauge(season_uvi, 'Season UVI'), use_container_width=True)
-            st.markdown(f'<div style="text-align:center;font-size:0.8rem;color:
-#6B7A8D">Park factor: {PARK_FACTORS.get(team_code,1.0):.2f}</div>',
+            st.markdown(f'<div style="text-align:center;font-size:0.8rem;color:#6B7A8D">Park factor: {PARK_FACTORS.get(team_code,1.0):.2f}</div>',
                         unsafe_allow_html=True)
         # ── GAME DETAIL SELECTOR ──────────────────────────────────────────
         st.markdown('---')
@@ -878,12 +868,9 @@ if mode == '📊 Player Audit':
             marker=dict(
                 size=8, opacity=0.7,
                 color=p_data['game_uvi'],
-                colorscale=[[0,RED],[0.35,'
-#E67E22'],[0.5,'
-#AAB7B8'],[0.75,GRN],[1,GOLD]],
+                colorscale=[[0,RED],[0.35,'#E67E22'],[0.5,'#AAB7B8'],[0.75,GRN],[1,GOLD]],
                 cmin=50, cmax=160, showscale=True,
-                colorbar=dict(title='UVI', tickfont=dict(color='
-#6B7A8D')),
+                colorbar=dict(title='UVI', tickfont=dict(color='#6B7A8D')),
                 line=dict(color='rgba(0,0,0,0.2)',width=1),
             ),
             hovertemplate='<b>%{text}</b><br>Pitches: %{x}<br>UVI: %{y:.1f}<extra></extra>',
@@ -894,8 +881,7 @@ if mode == '📊 Player Audit':
         fig.add_vline(x=thresh_vline, line_dash='dash', line_color='rgba(255,255,255,0.15)',
                       annotation_text='Reliability threshold',
                       annotation_position='top right',
-                      annotation_font=dict(color='
-#6B7A8D', size=9))
+                      annotation_font=dict(color='#6B7A8D', size=9))
         fig.update_layout(**PLOT, height=300,
             title=dict(text='UVI vs Sample Size', font=dict(size=13,family='Barlow Condensed'), x=0),
             xaxis_title='Pitches', yaxis_title='Game UVI', showlegend=False)
@@ -977,8 +963,7 @@ elif mode == '🏆 Leaderboard':
             <div class="stat-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                     <span style="font-size:1.1rem">#{i+1}</span>
-                    <span style="font-size:0.7rem;color:
-#6B7A8D">{row['team_tag']}</span>
+                    <span style="font-size:0.7rem;color:#6B7A8D">{row['team_tag']}</span>
                 </div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;margin-bottom:6px;line-height:1.1">{row['player_name']}</div>
                 <div class="value">{score:.0f}</div>
@@ -995,8 +980,7 @@ elif mode == '🏆 Leaderboard':
         marker_color=colors_bar,
         text=[f"{v:.0f}" for v in board[score_c]],
         textposition='outside',
-        textfont=dict(color='
-#E8E8E8', size=9, family='Barlow Condensed'),
+        textfont=dict(color='#E8E8E8', size=9, family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b> (%{customdata})<br>UVI: %{y:.1f}<extra></extra>',
         customdata=board['team_tag'],
     ))
@@ -1099,8 +1083,7 @@ elif mode == '🔮 Simulator':
         marker_color=bar_c,
         text=[f'{v:+.1f}' for v in adj_df['Value']],
         textposition='outside',
-        textfont=dict(color='
-#E8E8E8',size=11,family='Barlow Condensed'),
+        textfont=dict(color='#E8E8E8',size=11,family='Barlow Condensed'),
     ))
     fig.add_hline(y=0, line_color='rgba(255,255,255,0.2)')
     fig.update_layout(**PLOT, height=240, showlegend=False,
@@ -1160,18 +1143,12 @@ complete_uvi = batting_uvi
     with col2:
         st.markdown('### Score Tiers')
         tiers = [
-            ('160+',   '🔥 Impact Player',    '
-#C9A84C', 'Historic value — 2+ std above avg'),
-            ('130–159','⭐ Proven Starter',    '
-#52BE80', 'Clear top-of-roster contributor'),
-            ('115–129','📈 Solid Contributor', '
-#5DADE2', 'Consistent positive value'),
-            ('90–114', '⚾ Roster Average',    '
-#AAB7B8', 'Professional baseline'),
-            ('70–89',  '📉 Fringe Roster',    '
-#E67E22', 'Below replacement threshold'),
-            ('<70',    '⚠️ DFA Candidate',    '
-#E74C3C', 'Significant negative contribution'),
+            ('160+',   '🔥 Impact Player',    '#C9A84C', 'Historic value — 2+ std above avg'),
+            ('130–159','⭐ Proven Starter',    '#52BE80', 'Clear top-of-roster contributor'),
+            ('115–129','📈 Solid Contributor', '#5DADE2', 'Consistent positive value'),
+            ('90–114', '⚾ Roster Average',    '#AAB7B8', 'Professional baseline'),
+            ('70–89',  '📉 Fringe Roster',    '#E67E22', 'Below replacement threshold'),
+            ('<70',    '⚠️ DFA Candidate',    '#E74C3C', 'Significant negative contribution'),
         ]
         for score, label, color, desc in tiers:
             st.markdown(f"""
@@ -1180,8 +1157,7 @@ complete_uvi = batting_uvi
                     <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:800;color:{color}">{score}</span>
                     <span style="font-size:0.78rem;color:{color}">{label}</span>
                 </div>
-                <div style="font-size:0.72rem;color:
-#6B7A8D;margin-top:3px">{desc}</div>
+                <div style="font-size:0.72rem;color:#6B7A8D;margin-top:3px">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
         st.markdown('---')
