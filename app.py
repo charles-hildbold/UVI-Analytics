@@ -17,7 +17,7 @@ from uvi_engine import (
     PARK_FACTORS, TEAM_NAMES,
     P_MEAN, P_MULT, H_MEAN, H_MULT,
     LEAGUE_AVG_SPEED,
-    load_game_stats, load_season_data, get_last_updated,
+    load_game_stats, load_season_data, load_playoff_data, get_last_updated,
     MIN_PITCH_PITCHER, MIN_PITCH_HITTER_FULL, MIN_PITCH_HITTER_PARTIAL,
 )
 
@@ -223,8 +223,13 @@ GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
 
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def get_season_data(season: int):
-    return load_season_data(season, 'data')
+def get_season_data(season):
+    if season == '2025_playoffs':
+        hg, pg, hs, ps = load_playoff_data(2025, 'data')
+        if hg is None:
+            return load_season_data(2025, 'data')
+        return hg, pg, hs, ps
+    return load_season_data(int(season), 'data')
 
 @st.cache_data(show_spinner=False)
 def get_data():
@@ -536,13 +541,28 @@ with st.sidebar:
 
     st.markdown('---')
     # Season toggle
-    season_options = ['📅 2025 — Full Season', '🔴 2026 — Current Season']
+    season_options = ['📅 2025 — Full Season', '🏆 2025 — Postseason', '🔴 2026 — Current Season']
     
     # Tell the radio button to select index 1 (2026) if that is our session state
-    default_idx = 1 if st.session_state.selected_season == 2026 else 0
+    if st.session_state.selected_season == 2026:
+        default_idx = 2
+    elif st.session_state.selected_season == '2025_playoffs':
+        st.markdown(
+            '<div style="background:rgba(82,190,128,0.10);border:1px solid rgba(82,190,128,0.3);'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#52BE80;">'
+            '🏆 <b>2025 Postseason</b><br>Wild Card · ALDS · ALCS · World Series</div>',
+            unsafe_allow_html=True)
+        default_idx = 1
+    else:
+        default_idx = 0
     season_choice  = st.radio('Season', season_options, index=default_idx)
     
-    new_season = 2026 if '2026' in season_choice else 2025
+    if '2026' in season_choice:
+        new_season = 2026
+    elif 'Postseason' in season_choice:
+        new_season = '2025_playoffs'
+    else:
+        new_season = 2025
     if new_season != st.session_state.selected_season:
         st.session_state.selected_season = new_season
         st.cache_data.clear()
