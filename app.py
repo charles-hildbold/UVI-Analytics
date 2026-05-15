@@ -1,15 +1,13 @@
-"""
+ """
 app.py  —  Unified Value Index (UVI) | MLB Performance Audit Engine
 Display only. All calculations in uvi_engine.py.
 """
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
-
 from uvi_engine import (
     load_data, get_player_games, get_leaderboard,
     compute_span_uvi, compute_rolling_uvi, compute_game_uvi_col,
@@ -17,10 +15,9 @@ from uvi_engine import (
     PARK_FACTORS, TEAM_NAMES,
     P_MEAN, P_MULT, H_MEAN, H_MULT,
     LEAGUE_AVG_SPEED,
-    load_game_stats, load_season_data, get_last_updated,
+    load_game_stats, load_season_data, load_playoff_data, get_last_updated,
     MIN_PITCH_PITCHER, MIN_PITCH_HITTER_FULL, MIN_PITCH_HITTER_PARTIAL,
 )
-
 # ── CONFIG ─────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="UVI | MLB Performance Audit",
@@ -28,27 +25,35 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
 # ── STYLES ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap');
-
 :root {
-    --gold:   #C9A84C;
-    --gold2:  #F0CC6E;
-    --red:    #C0392B;
-    --green:  #27AE60;
-    --blue:   #2E86AB;
-    --bg:     #080B0F;
-    --bg2:    #0D1219;
-    --bg3:    #131A24;
-    --bg4:    #1A2333;
+    --gold:   
+#C9A84C;
+    --gold2:  
+#F0CC6E;
+    --red:    
+#C0392B;
+    --green:  
+#27AE60;
+    --blue:   
+#2E86AB;
+    --bg:     
+#080B0F;
+    --bg2:    
+#0D1219;
+    --bg3:    
+#131A24;
+    --bg4:    
+#1A2333;
     --border: rgba(201,168,76,0.15);
-    --text:   #E8E8E8;
-    --muted:  #6B7A8D;
+    --text:   
+#E8E8E8;
+    --muted:  
+#6B7A8D;
 }
-
 html, body, [data-testid="stApp"] {
     background-color: var(--bg) !important;
     font-family: 'Barlow', sans-serif;
@@ -57,7 +62,6 @@ html, body, [data-testid="stApp"] {
 [data-testid="stApp"] { background: var(--bg) !important; }
 #MainMenu, footer { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
-
 /* Sidebar */
 [data-testid="stSidebar"] {
     background: var(--bg2) !important;
@@ -70,7 +74,6 @@ html, body, [data-testid="stApp"] {
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
-
 /* Metrics */
 [data-testid="stMetric"] {
     background: var(--bg3) !important;
@@ -90,13 +93,11 @@ html, body, [data-testid="stApp"] {
     font-size: 2.2rem !important;
     font-weight: 800;
 }
-
 /* Headings */
 h1,h2,h3 { font-family:'Barlow Condensed',sans-serif !important; color:#fff !important; }
 h1 { font-size:2.6rem !important; font-weight:900; letter-spacing:0.03em; }
 h2 { font-size:1.7rem !important; font-weight:700; }
 h3 { font-size:1.2rem !important; font-weight:600; }
-
 /* Tabs */
 [data-testid="stTabs"] button {
     font-family:'Barlow Condensed',sans-serif;
@@ -115,11 +116,9 @@ h3 { font-size:1.2rem !important; font-weight:600; }
     border-bottom: 1px solid var(--border);
     gap: 2px;
 }
-
 hr { border-color: var(--border) !important; }
 .stSelectbox > div > div { background: var(--bg3) !important; border-color: var(--border) !important; }
 [data-testid="stDataFrame"] { border: 1px solid var(--border) !important; border-radius:8px; }
-
 /* Cards */
 .stat-card {
     background: var(--bg3);
@@ -141,7 +140,6 @@ hr { border-color: var(--border) !important; }
 .stat-card .sub {
     font-size:0.78rem; color:var(--muted); margin-top:4px;
 }
-
 /* Player header */
 .player-header {
     background: linear-gradient(135deg, var(--bg3) 0%, var(--bg4) 100%);
@@ -161,7 +159,6 @@ hr { border-color: var(--border) !important; }
     letter-spacing:0.08em; text-transform:uppercase;
     margin-top:4px;
 }
-
 /* Score pill */
 .score-pill {
     display:inline-block;
@@ -171,7 +168,6 @@ hr { border-color: var(--border) !important; }
     font-size:0.8rem; font-weight:700;
     letter-spacing:0.08em;
 }
-
 /* Component breakdown bar */
 .comp-row {
     display:flex; align-items:center; gap:10px;
@@ -183,7 +179,6 @@ hr { border-color: var(--border) !important; }
 .comp-bar { height:100%; border-radius:3px; }
 .comp-val { width:50px; text-align:right; font-family:'Barlow Condensed',sans-serif;
             font-size:0.9rem; font-weight:700; }
-
 /* Wordmark */
 .wordmark {
     font-family:'Barlow Condensed',sans-serif;
@@ -191,7 +186,6 @@ hr { border-color: var(--border) !important; }
     letter-spacing:0.2em; color:var(--gold);
 }
 .wordmark-sub { font-size:0.62rem; color:var(--muted); letter-spacing:0.18em; text-transform:uppercase; }
-
 /* Leaderboard row */
 .lb-row {
     display:flex; align-items:center; gap:12px;
@@ -208,35 +202,40 @@ hr { border-color: var(--border) !important; }
             font-size:1rem; font-weight:800; flex-shrink:0; }
 </style>
 """, unsafe_allow_html=True)
-
 # ── PLOT THEME ──────────────────────────────────────────────────────────────
 PLOT = dict(
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
-    font=dict(family='Barlow, sans-serif', color='#E8E8E8'),
+    font=dict(family='Barlow, sans-serif', color='
+#E8E8E8'),
     margin=dict(l=10,r=10,t=36,b=10),
     xaxis=dict(gridcolor='rgba(255,255,255,0.04)', zerolinecolor='rgba(255,255,255,0.06)'),
     yaxis=dict(gridcolor='rgba(255,255,255,0.04)', zerolinecolor='rgba(255,255,255,0.06)'),
     legend=dict(bgcolor='rgba(0,0,0,0)', borderwidth=0),
 )
-GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
-
+GOLD = '
+#C9A84C'; RED = '
+#C0392B'; GRN = '
+#27AE60'; BLUE = '
+#2E86AB'
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def get_season_data(season: int):
-    return load_season_data(season, 'data')
-
+def get_season_data(season):
+    if season == '2025_playoffs':
+        hg, pg, hs, ps = load_playoff_data(2025, 'data')
+        if hg is None:
+            return load_season_data(2025, 'data')
+        return hg, pg, hs, ps
+    return load_season_data(int(season), 'data')
 @st.cache_data(show_spinner=False)
 def get_data():
     return load_data('data')
-
 @st.cache_data(show_spinner=False)
 def get_game_stats():
     return load_game_stats('data')
-
+# Season selection lives in session state so sidebar can set it
 if 'selected_season' not in st.session_state:
-    st.session_state.selected_season = 2025
-
+    st.session_state.selected_season = 2026
 try:
     hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
     hgs, pgs = get_game_stats()
@@ -246,16 +245,17 @@ except Exception as e:
     DATA_OK = False
     DATA_ERR = str(e)
     last_updated = None
-
 # ── GAUGE CHART ─────────────────────────────────────────────────────────────
 def gauge(value, title='UVI', height=200):
     fig = go.Figure(go.Indicator(
         mode='gauge+number',
         value=value,
-        title=dict(text=title, font=dict(size=12, color='#6B7A8D', family='Barlow Condensed')),
+        title=dict(text=title, font=dict(size=12, color='
+#6B7A8D', family='Barlow Condensed')),
         number=dict(font=dict(size=40, color=GOLD, family='Barlow Condensed')),
         gauge=dict(
-            axis=dict(range=[0,200], tickfont=dict(color='#6B7A8D', size=9)),
+            axis=dict(range=[0,200], tickfont=dict(color='
+#6B7A8D', size=9)),
             bar=dict(color=GOLD, thickness=0.2),
             bgcolor='rgba(255,255,255,0.03)',
             borderwidth=0.5, bordercolor='rgba(201,168,76,0.2)',
@@ -273,18 +273,16 @@ def gauge(value, title='UVI', height=200):
     layout['margin'] = dict(l=20, r=20, t=20, b=10)
     fig.update_layout(**layout)
     return fig
-
 # ── TREND CHART ─────────────────────────────────────────────────────────────
 def trend_chart(df, role, window=7):
     df = compute_rolling_uvi(df, role, window)
     fig = go.Figure()
-
     # League average band
     fig.add_hrect(y0=90, y1=115, fillcolor='rgba(255,255,255,0.02)',
                   line_width=0, annotation_text='Roster Average Zone',
                   annotation_position='top left',
-                  annotation_font=dict(color='#6B7A8D', size=9))
-
+                  annotation_font=dict(color='
+#6B7A8D', size=9))
     if role == 'hitter':
         # Three tiers for hitters
         low     = df[df['reliability_level'] == 'low']
@@ -301,14 +299,15 @@ def trend_chart(df, role, window=7):
         thresh_full = MIN_PITCH_PITCHER
         low_label = f'Low Sample (<{thresh_full} pitches)'
         par_label = ''
-
     # Low-sample — grey open circles
     if not low.empty:
         fig.add_trace(go.Scatter(
             x=low['game_date'], y=low['game_uvi'], mode='markers',
-            marker=dict(size=6, color='#4A5568', opacity=0.65,
+            marker=dict(size=6, color='
+#4A5568', opacity=0.65,
                         symbol='circle-open',
-                        line=dict(color='#4A5568', width=1.5)),
+                        line=dict(color='
+#4A5568', width=1.5)),
             name=low_label,
             hovertemplate=(
                 '<b>%{x|%b %d}</b><br>UVI: %{y:.1f} · %{customdata} pitches<br>'
@@ -317,12 +316,12 @@ def trend_chart(df, role, window=7):
             ),
             customdata=low['pitch_count'],
         ))
-
     # Partial (hitters only) — grey filled, half opacity
     if not partial.empty:
         fig.add_trace(go.Scatter(
             x=partial['game_date'], y=partial['game_uvi'], mode='markers',
-            marker=dict(size=6, color='#718096', opacity=0.55),
+            marker=dict(size=6, color='
+#718096', opacity=0.55),
             name=par_label,
             hovertemplate=(
                 '<b>%{x|%b %d}</b><br>UVI: %{y:.1f} · %{customdata} pitches<br>'
@@ -331,7 +330,6 @@ def trend_chart(df, role, window=7):
             ),
             customdata=partial['pitch_count'],
         ))
-
     # Reliable — gold dots
     if not full.empty:
         fig.add_trace(go.Scatter(
@@ -342,7 +340,6 @@ def trend_chart(df, role, window=7):
             hovertemplate='<b>%{x|%b %d}</b><br>UVI: %{y:.1f} · %{customdata} pitches<extra></extra>',
             customdata=full['pitch_count'],
         ))
-
     # Rolling trend line
     fig.add_trace(go.Scatter(
         x=df['game_date'], y=df['rolling_uvi'], mode='lines',
@@ -350,22 +347,18 @@ def trend_chart(df, role, window=7):
         name=f'{window}-Game Trend',
         hovertemplate='<b>%{x|%b %d}</b><br>Trend: %{y:.1f}<extra></extra>',
     ))
-
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.3)', line_width=1)
-
     # Clip y-axis based on reliable games only so low-sample outliers don't distort scale
     reliable_vals = df.loc[df['reliable'], 'game_uvi'].dropna()
     if not reliable_vals.empty:
         y_max = min(reliable_vals.max() * 1.15, 350)
         y_min = max(reliable_vals.min() * 0.85, 0)
         fig.update_yaxes(range=[y_min, y_max])
-
     fig.update_layout(**PLOT, height=300,
         title=dict(text='Game-by-Game UVI · Rolling Trend',
                    font=dict(size=13, family='Barlow Condensed'), x=0),
         yaxis_title='UVI', xaxis_title='')
     return fig
-
 # ── MONTHLY CHART ────────────────────────────────────────────────────────────
 def monthly_chart(df, role):
     months = (df.groupby('month_label')
@@ -380,14 +373,14 @@ def monthly_chart(df, role):
         marker_color=colors,
         text=[f"{v:.0f}" for v in months['uvi']],
         textposition='outside',
-        textfont=dict(color='#E8E8E8', size=11, family='Barlow Condensed'),
+        textfont=dict(color='
+#E8E8E8', size=11, family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b><br>UVI: %{y:.1f}<extra></extra>',
     ))
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.4)')
     fig.update_layout(**PLOT, height=260, showlegend=False,
         title=dict(text='Monthly UVI', font=dict(size=13,family='Barlow Condensed'), x=0))
     return fig
-
 # ── COMPONENT BREAKDOWN (hitters) ────────────────────────────────────────────
 def component_breakdown(row):
     batting = float(row.get('batting_uvi', row.get('season_uvi', 100)))
@@ -412,17 +405,14 @@ def component_breakdown(row):
         </div>'''
     html += '</div>'
     return html
-
 # ── GAME LOG TABLE ────────────────────────────────────────────────────────────
 def game_log_table(df, role):
-    log = df[['game_date','team_tag','game_uvi','pitch_count','shift']].copy()
+    log = df[['game_date','team_tag','game_uvi','pitch_count']].copy()
     log['game_date'] = log['game_date'].dt.strftime('%Y-%m-%d')
     log['game_uvi']  = log['game_uvi'].round(1)
-    log['shift']     = log['shift'].round(3)
-    log.columns      = ['Date','Team','UVI','Pitches','Shift']
+    log.columns      = ['Date','Team','UVI','Pitches']
     log = log.sort_values('Date', ascending=False)
     return log
-
 # ── GAME DETAIL PANEL ────────────────────────────────────────────────────────
 def game_detail_panel(player, role, game_date, p_data, stats_df):
     role_lower = role.lower()
@@ -442,14 +432,16 @@ def game_detail_panel(player, role, game_date, p_data, stats_df):
     import datetime
     date_str = game_date.strftime('%B %d, %Y') if hasattr(game_date,'strftime') else str(game_date)
     st.markdown(f"""
-    <div style="background:#1A2333;border:1px solid rgba(201,168,76,0.15);
+    <div style="background:
+#1A2333;border:1px solid rgba(201,168,76,0.15);
                 border-left:3px solid {tc};border-radius:10px;
                 padding:18px 22px;margin:12px 0 16px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
                             font-weight:800;color:#fff">{date_str}</div>
-                <div style="font-size:0.75rem;color:#6B7A8D;margin-top:2px">
+                <div style="font-size:0.75rem;color:
+#6B7A8D;margin-top:2px">
                     {pitches} pitches seen/thrown {'· ⚠️ Low sample — interpret with caution' if not reliable else ''}
                 </div>
             </div>
@@ -461,13 +453,10 @@ def game_detail_panel(player, role, game_date, p_data, stats_df):
         </div>
     </div>
     """, unsafe_allow_html=True)
-
     if stats_row.empty:
         st.caption('Box score stats not available for this game.')
         return
-
     s = stats_row.iloc[0]
-
     if role_lower == 'pitcher':
         c1,c2,c3,c4 = st.columns(4)
         c1.metric('Innings Pitched', str(s.get('ip','—')))
@@ -513,7 +502,6 @@ def game_detail_panel(player, role, game_date, p_data, stats_df):
         if k>=3:  note.append(f"tough day at the plate ({k} strikeouts)")
         if ev and not np.isnan(float(ev)) and float(ev)>=98: note.append(f"elite contact quality ({float(ev):.1f} mph avg exit velo)")
         if note: st.caption(f"📋 **Game note:** {', '.join(note).capitalize()}. UVI of {game_uvi:.1f} reflects this in context of the game situation and leverage.")
-
 # ────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
 # ────────────────────────────────────────────────────────────────────────────
@@ -524,60 +512,76 @@ with st.sidebar:
         st.markdown('<div class="wordmark">UVI</div>', unsafe_allow_html=True)
         st.markdown('<div class="wordmark-sub">Unified Value Index</div>', unsafe_allow_html=True)
         st.markdown('<div class="wordmark-sub">MLB Performance Audit Engine</div>', unsafe_allow_html=True)
-
     st.markdown('---')
     mode = st.radio('Navigation', [
+        '🏠 Home',
         '📊 Player Audit',
         '🏆 Leaderboard',
         '🔮 Simulator',
         '📖 Methodology',
     ])
     st.markdown('---')
-    season_choice = st.radio('Season', [
-        '📅 2025 — Full Season',
-        '🔴 2026 — Current Season',
-    ])
-    new_season = 2026 if '2026' in season_choice else 2025
+    # Season toggle
+    season_options = ['📅 2025 — Full Season', '🏆 2025 — Postseason', '🔴 2026 — Current Season']
+
+    # Tell the radio button to select index 1 (2026) if that is our session state
+    if st.session_state.selected_season == 2026:
+        default_idx = 2
+    elif st.session_state.selected_season == '2025_playoffs':
+        st.markdown(
+            '<div style="background:rgba(82,190,128,0.10);border:1px solid rgba(82,190,128,0.3);'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#52BE80;">'
+            '🏆 <b>2025 Postseason</b><br>Wild Card · ALDS · ALCS · World Series</div>',
+            unsafe_allow_html=True)
+        default_idx = 1
+    else:
+        default_idx = 0
+    season_choice  = st.radio('Season', season_options, index=default_idx)
+
+    if '2026' in season_choice:
+        new_season = 2026
+    elif 'Postseason' in season_choice:
+        new_season = '2025_playoffs'
+    else:
+        new_season = 2025
     if new_season != st.session_state.selected_season:
         st.session_state.selected_season = new_season
         st.cache_data.clear()
         st.rerun()
+    # Current as of banner for 2026
     if st.session_state.selected_season == 2026:
         if last_updated:
             st.markdown(
-                f'<div style="background:rgba(201,168,76,0.12);border:1px solid '
-                f'rgba(201,168,76,0.3);border-radius:6px;padding:8px 12px;'
-                f'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
+                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
+#C9A84C;">'
                 f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
                 unsafe_allow_html=True)
         else:
             st.markdown(
-                '<div style="background:rgba(201,168,76,0.08);border:1px solid '
-                'rgba(201,168,76,0.2);border-radius:6px;padding:8px 12px;'
-                'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
+                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
+#C9A84C;">'
                 '🔴 <b>2026 Season</b><br>Data updating soon</div>',
                 unsafe_allow_html=True)
     else:
         st.markdown(
-            '<div style="background:rgba(255,255,255,0.04);border:1px solid '
-            'rgba(255,255,255,0.08);border-radius:6px;padding:8px 12px;'
-            'margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
+            '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:
+#6B7A8D;">'
             '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
             unsafe_allow_html=True)
     st.markdown('---')
-
-    if mode in ['📊 Player Audit', '🔮 Simulator'] and DATA_OK:
+    if mode in ['📊 Player Audit', '🔮 Simulator', '🏠 Home'] and DATA_OK:
         role = st.radio('Role', ['Hitter', 'Pitcher'])
         teams_sorted = sorted(TEAM_NAMES.keys())
         team_labels  = [f"{t} — {TEAM_NAMES[t]}" for t in teams_sorted]
         sel_team_idx = st.selectbox('Team', range(len(teams_sorted)),
                                      format_func=lambda i: team_labels[i])
         team_code = teams_sorted[sel_team_idx]
-
         games_df  = hg if role == 'Hitter' else pg
         team_df   = games_df[games_df['team_tag'] == team_code]
         players   = sorted(team_df['player_name'].unique())
-
         if players:
             player = st.selectbox('Player', players)
             p_data = get_player_games(games_df, player, role.lower())
@@ -585,7 +589,6 @@ with st.sidebar:
             st.warning(f'No {role.lower()} data for {team_code}')
             player = None
             p_data = pd.DataFrame()
-
     st.markdown('---')
     with st.expander('⚾ Score Guide'):
         st.markdown("""
@@ -597,18 +600,169 @@ with st.sidebar:
 | 90–114 | ⚾ Roster Average |
 | 70–89 | 📉 Fringe Roster |
 | <70 | ⚠️ DFA Candidate |
-
 Baseline = **100** · All scores park-neutralized
         """)
-
 # ────────────────────────────────────────────────────────────────────────────
 # ERROR STATE
 # ────────────────────────────────────────────────────────────────────────────
 if not DATA_OK:
-    st.error(f"⚠️ Could not load data files from `/data/` folder.\n\n`{DATA_ERR}`")
-    st.info("Make sure all five CSV files are in the `data/` directory.")
+    st.error(f"⚠️ Could not load data files from /data/ folder.\n\n{DATA_ERR}")
+    st.info("Make sure all five CSV files are in the data/ directory.")
     st.stop()
-
+# ────────────────────────────────────────────────────────────────────────────
+# PAGE: HOME
+# ────────────────────────────────────────────────────────────────────────────
+if mode == '🏠 Home':
+    season_yr = st.session_state.get('selected_season', 2025)
+    st.markdown(f'## ⚾ UVI — {season_yr} Season Snapshot')
+    st.markdown('Park-neutralized · Leverage-weighted · All 30 teams')
+    st.markdown('---')
+    if DATA_OK:
+        score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
+        score_p = 'season_uvi'
+        min_p_h = 150 if season_yr == 2025 else 50
+        min_p_p = 150
+        top_h = hs[hs['total_pitches'] >= min_p_h].sort_values(
+            score_h, ascending=False).head(1).iloc[0]
+        top_p_df = ps.copy()
+        top_p_df['avg_ppg'] = top_p_df['total_pitches'] / top_p_df['games'].replace(0,1)
+        top_starters = top_p_df[
+            (top_p_df['avg_ppg'] >= 45) &
+            (top_p_df['total_pitches'] >= min_p_p)
+        ].sort_values(score_p, ascending=False)
+        top_p = top_starters.head(1).iloc[0] if not top_starters.empty else None
+        # Biggest 7-day risers
+        hg_recent = hg[hg['game_date'] >= hg['game_date'].max() - pd.Timedelta(days=7)]
+        risers = hg_recent.groupby('player_name').apply(
+            lambda g: compute_span_uvi(g, 'hitter')
+        ).reset_index()
+        risers.columns = ['player_name', 'recent_uvi']
+        risers = risers.merge(
+            hs[['player_name', score_h, 'team_tag']],
+            on='player_name', how='left'
+        )
+        risers['delta'] = risers['recent_uvi'] - risers[score_h]
+        top_riser = risers.sort_values('delta', ascending=False).head(1).iloc[0] \
+                    if not risers.empty else None
+        # ── SNAPSHOT CARDS ──────────────────────────────────────────────
+        st.markdown('### 🔥 Current Leaders')
+        snap_cols = st.columns(3)
+        h_score = float(top_h[score_h])
+        h_tier, h_color = uvi_tier(h_score)
+        with snap_cols[0]:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div style="font-size:0.7rem;color:
+#6B7A8D;margin-bottom:4px">
+                    TOP HITTER · {top_h['team_tag']}</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
+                    font-weight:700;margin-bottom:6px">{top_h['player_name']}</div>
+                <div class="value" style="color:{h_color}">{h_score:.0f}</div>
+                <div class="sub">{uvi_emoji(h_score)} {h_tier}</div>
+                <div class="sub">{int(top_h['games'])} G · {int(top_h['total_pitches'])} pitches</div>
+            </div>
+            """, unsafe_allow_html=True)
+        if top_p is not None:
+            p_score = float(top_p[score_p])
+            p_tier, p_color = uvi_tier(p_score)
+            with snap_cols[1]:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div style="font-size:0.7rem;color:
+#6B7A8D;margin-bottom:4px">
+                        TOP STARTER · {top_p['team_tag']}</div>
+                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
+                        font-weight:700;margin-bottom:6px">{top_p['player_name']}</div>
+                    <div class="value" style="color:{p_color}">{p_score:.0f}</div>
+                    <div class="sub">{uvi_emoji(p_score)} {p_tier}</div>
+                    <div class="sub">{int(top_p['games'])} G · {int(top_p['total_pitches'])} pitches</div>
+                </div>
+                """, unsafe_allow_html=True)
+        if top_riser is not None:
+            r_score = float(top_riser['recent_uvi'])
+            r_tier, r_color = uvi_tier(r_score)
+            with snap_cols[2]:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div style="font-size:0.7rem;color:
+#6B7A8D;margin-bottom:4px">
+                        BIGGEST RISER · LAST 7 DAYS · {top_riser.get('team_tag','')}</div>
+                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
+                        font-weight:700;margin-bottom:6px">{top_riser['player_name']}</div>
+                    <div class="value" style="color:{r_color}">{r_score:.0f}</div>
+                    <div class="sub">{uvi_emoji(r_score)} {r_tier}</div>
+                    <div class="sub" style="color:
+#52BE80">↑ {top_riser['delta']:+.1f} vs season avg</div>
+                </div>
+                """, unsafe_allow_html=True)
+        st.markdown('---')
+        # ── SEARCH ──────────────────────────────────────────────────────
+        st.markdown('### 🔍 Find Any Player')
+        col_search1, col_search2 = st.columns([3, 1])
+        with col_search1:
+            all_players = sorted(hs['player_name'].unique().tolist() +
+                                  ps['player_name'].unique().tolist())
+            search_player = st.selectbox('Search by player name',
+                                          [''] + all_players,
+                                          key='home_search')
+        with col_search2:
+            search_role = st.radio('Role', ['Hitter', 'Pitcher'],
+                                    key='home_role', horizontal=True)
+        if search_player:
+            s_src = hs if search_role == 'Hitter' else ps
+            s_score = score_h if search_role == 'Hitter' else score_p
+            s_row_home = s_src[s_src['player_name'] == search_player]
+            if not s_row_home.empty:
+                r = s_row_home.iloc[0]
+                sc = float(r.get(s_score, 100))
+                tl, tc = uvi_tier(sc)
+                teams_display = r.get('all_teams', r.get('team_tag', ''))
+                st.markdown(f"""
+                <div class="stat-card" style="max-width:400px">
+                    <div style="font-size:0.7rem;color:
+#6B7A8D;margin-bottom:4px">
+                        {search_role.upper()} · {teams_display}</div>
+                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;
+                        font-weight:700;margin-bottom:8px">{search_player}</div>
+                    <div class="value" style="color:{tc}">{sc:.0f}</div>
+                    <div class="sub">{uvi_emoji(sc)} {tl}</div>
+                    <div class="sub">{int(r.get('games',0))} G · {int(r.get('total_pitches',0))} pitches</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.caption('Go to Player Audit in the sidebar for the full breakdown.')
+            else:
+                st.info(f'No {search_role.lower()} data found for {search_player}.')
+        st.markdown('---')
+        # ── TOP 10 QUICK LEADERBOARDS ────────────────────────────────
+        st.markdown('### 📊 Quick Rankings')
+        ql_col1, ql_col2 = st.columns(2)
+        with ql_col1:
+            st.markdown('**Top 10 Hitters**')
+            top10h = hs[hs['total_pitches'] >= min_p_h].sort_values(
+                score_h, ascending=False).head(10)[
+                ['player_name','team_tag', score_h,'games']].copy()
+            top10h.columns = ['Player','Team','UVI','G']
+            top10h['UVI'] = top10h['UVI'].round(1)
+            top10h.index = range(1, len(top10h)+1)
+            st.dataframe(top10h, use_container_width=True, height=370)
+        with ql_col2:
+            st.markdown('**Top 10 Starting Pitchers**')
+            top10p = top_starters.head(10)[
+                ['player_name','team_tag', score_p,'games']].copy()
+            top10p.columns = ['Player','Team','UVI','G']
+            top10p['UVI'] = top10p['UVI'].round(1)
+            top10p.index = range(1, len(top10p)+1)
+            st.dataframe(top10p, use_container_width=True, height=370)
+        st.markdown('---')
+        st.markdown(
+            f'<div style="text-align:center;font-size:0.8rem;color:
+#6B7A8D">'
+            f'UVI measures every pitch weighted by count leverage and win probability. '
+            f'100 = league average · Each 50 points = 1 standard deviation · '
+            f'Data through {last_updated if last_updated else season_yr}</div>',
+            unsafe_allow_html=True)
+    else:
+        st.error('Data not available. Please check your connection.')
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: PLAYER AUDIT
 # ────────────────────────────────────────────────────────────────────────────
@@ -616,29 +770,24 @@ if mode == '📊 Player Audit':
     if not player or p_data.empty:
         st.info('Select a team and player from the sidebar.')
         st.stop()
-
     role_lower = role.lower()
     season_uvi = compute_span_uvi(p_data, role_lower)
     tier, tier_color = uvi_tier(season_uvi)
     emoji = uvi_emoji(season_uvi)
-
     # Season row from season file
     s_df = hs if role == 'Hitter' else ps
     s_row = s_df[s_df['player_name'] == player]
-
     # Header
     recent = p_data.tail(7)
     recent_uvi = compute_span_uvi(recent, role_lower) if len(recent) >= 2 else season_uvi
     delta = recent_uvi - season_uvi
-
     st.markdown(f"""
     <div class="player-header">
         <div class="name">{player}</div>
-        <div class="meta">{TEAM_NAMES.get(team_code, team_code)} &nbsp;·&nbsp; {role} &nbsp;·&nbsp;
+        <div class="meta">{s_row.iloc[0]['all_teams'] if not s_row.empty and 'all_teams' in s_row.columns and '/' in str(s_row.iloc[0].get('all_teams','')) else         TEAM_NAMES.get(team_code, team_code)} &nbsp;·&nbsp; {role} &nbsp;·&nbsp;
         <span style="color:{tier_color}">{emoji} {tier}</span></div>
     </div>
     """, unsafe_allow_html=True)
-
     # Top metrics
     c1,c2,c3,c4,c5 = st.columns(5)
     c1.metric('Season UVI', f'{season_uvi:.1f}')
@@ -654,9 +803,7 @@ if mode == '📊 Player Audit':
                       help=f"{best['game_date'].strftime('%b %d')} · {int(best['pitch_count'])} pitches")
         else:
             c5.metric('Peak Game UVI', '—', help='No games above reliability threshold')
-
     st.markdown('---')
-
     # Complete UVI breakdown (hitters only)
     if role == 'Hitter' and not s_row.empty:
         r = s_row.iloc[0]
@@ -666,10 +813,8 @@ if mode == '📊 Player Audit':
                     unsafe_allow_html=True)
         st.markdown(component_breakdown(r), unsafe_allow_html=True)
         st.markdown('---')
-
     # Tabs
     tab1, tab2, tab3, tab4 = st.tabs(['📈 Trend', '📅 Monthly', '📋 Game Log', '🔬 Reliability'])
-
     with tab1:
         col_chart, col_gauge = st.columns([3,1])
         with col_chart:
@@ -678,27 +823,23 @@ if mode == '📊 Player Audit':
                             use_container_width=True)
         with col_gauge:
             st.plotly_chart(gauge(season_uvi, 'Season UVI'), use_container_width=True)
-            st.markdown(f'<div style="text-align:center;font-size:0.8rem;color:#6B7A8D">Park factor: {PARK_FACTORS.get(team_code,1.0):.2f}</div>',
+            st.markdown(f'<div style="text-align:center;font-size:0.8rem;color:
+#6B7A8D">Park factor: {PARK_FACTORS.get(team_code,1.0):.2f}</div>',
                         unsafe_allow_html=True)
-
         # ── GAME DETAIL SELECTOR ──────────────────────────────────────────
         st.markdown('---')
         st.markdown('### 🔍 Game Detail')
         st.caption('Select a game date to see the full box score alongside the UVI breakdown.')
-
         stats_source = hgs if role == 'Hitter' else pgs
         available_dates = sorted(p_data['game_date'].dt.date.unique())
-
         sel_date = st.selectbox(
             'Select game date',
             available_dates,
             index=len(available_dates)-1,
             format_func=lambda d: d.strftime('%B %d, %Y'),
-            key='game_detail_date'
+            key=f'game_detail_date_{player}_{st.session_state.selected_season}'
         )
-
         game_detail_panel(player, role, sel_date, p_data, stats_source)
-
         st.markdown('---')
         col_top, col_bot = st.columns(2)
         thresh = MIN_PITCH_PITCHER if role == 'Pitcher' else MIN_PITCH_HITTER_FULL
@@ -719,7 +860,6 @@ if mode == '📊 Player Audit':
                     st.markdown(f'<span style="color:{tc}">●</span> **{r["game_date"].strftime("%b %d")}** — {r["game_uvi"]:.1f} · {int(r["pitch_count"])} pitches', unsafe_allow_html=True)
             else:
                 st.caption('No games above reliability threshold.')
-
     with tab2:
         st.plotly_chart(monthly_chart(p_data, role_lower), use_container_width=True)
         months = (p_data.groupby('month_label')
@@ -733,18 +873,15 @@ if mode == '📊 Player Audit':
         months['ms'] = pd.to_datetime(months['month_label'], format='%B %Y')
         months = months.sort_values('ms').drop(columns='ms')
         st.dataframe(months, hide_index=True, use_container_width=True)
-
     with tab3:
         log = game_log_table(p_data, role_lower)
         st.dataframe(log, hide_index=True, use_container_width=True, height=420)
-
         col_dl1, col_dl2 = st.columns([1,3])
         with col_dl1:
             csv = log.to_csv(index=False)
             st.download_button('⬇ Download Game Log', csv,
                                file_name=f'{player.replace(" ","_")}_uvi_2025.csv',
                                mime='text/csv')
-
     with tab4:
         fig = go.Figure(go.Scatter(
             x=p_data['pitch_count'], y=p_data['game_uvi'],
@@ -752,9 +889,12 @@ if mode == '📊 Player Audit':
             marker=dict(
                 size=8, opacity=0.7,
                 color=p_data['game_uvi'],
-                colorscale=[[0,RED],[0.35,'#E67E22'],[0.5,'#AAB7B8'],[0.75,GRN],[1,GOLD]],
+                colorscale=[[0,RED],[0.35,'
+#E67E22'],[0.5,'
+#AAB7B8'],[0.75,GRN],[1,GOLD]],
                 cmin=50, cmax=160, showscale=True,
-                colorbar=dict(title='UVI', tickfont=dict(color='#6B7A8D')),
+                colorbar=dict(title='UVI', tickfont=dict(color='
+#6B7A8D')),
                 line=dict(color='rgba(0,0,0,0.2)',width=1),
             ),
             hovertemplate='<b>%{text}</b><br>Pitches: %{x}<br>UVI: %{y:.1f}<extra></extra>',
@@ -765,7 +905,8 @@ if mode == '📊 Player Audit':
         fig.add_vline(x=thresh_vline, line_dash='dash', line_color='rgba(255,255,255,0.15)',
                       annotation_text='Reliability threshold',
                       annotation_position='top right',
-                      annotation_font=dict(color='#6B7A8D', size=9))
+                      annotation_font=dict(color='
+#6B7A8D', size=9))
         fig.update_layout(**PLOT, height=300,
             title=dict(text='UVI vs Sample Size', font=dict(size=13,family='Barlow Condensed'), x=0),
             xaxis_title='Pitches', yaxis_title='Game UVI', showlegend=False)
@@ -782,32 +923,60 @@ if mode == '📊 Player Audit':
                 )
             else:
                 st.caption(f'⚠️ {len(low)} game(s) below {MIN_PITCH_PITCHER}-pitch reliability threshold (grey open circles). Short relief outings naturally produce extreme UVI values — excluded from trend calculations.')
-
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: LEADERBOARD
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '🏆 Leaderboard':
-    st.markdown('## 🏆 2025 Season Leaderboard')
+    season_yr = st.session_state.get('selected_season', 2025)
+    st.markdown(f'## 🏆 {season_yr} Season Leaderboard')
     st.markdown('Park-neutralized · All 30 teams · Leverage-weighted')
     st.markdown('---')
-
-    lb_role = st.radio('Role', ['Hitter','Pitcher'], horizontal=True, key='lb_r')
+    lb_role = st.radio('Role', ['Hitter', 'Starting Pitcher', 'All Pitchers'],
+                       horizontal=True, key='lb_r')
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        teams_all  = ['All'] + sorted(TEAM_NAMES.keys())
-        sel_t      = st.selectbox('Filter by Team', teams_all, key='lb_t')
+        teams_all = ['All'] + sorted(TEAM_NAMES.keys())
+        sel_t     = st.selectbox('Filter by Team', teams_all, key='lb_t')
     with col_f2:
-        min_g = st.slider('Min games', 5, 50, 10, key='lb_g')
+        if lb_role == 'Hitter':
+            min_label   = 'Min pitches seen'
+            min_default = 50
+            min_max     = 300
+        elif lb_role == 'Starting Pitcher':
+            min_label   = 'Min pitches thrown'
+            min_default = 150
+            min_max     = 600
+        else:
+            min_label   = 'Min pitches thrown'
+            min_default = 30
+            min_max     = 300
+        min_p = st.slider(min_label, 10, min_max, min_default, key='lb_g')
     with col_f3:
         top_n = st.slider('Show top N', 10, 50, 25, key='lb_n')
-
-    board   = get_leaderboard(hs if lb_role=='Hitter' else ps, lb_role.lower(), min_g, sel_t)
+    # Classify pitchers by role based on avg pitches per game
+    if lb_role != 'Hitter':
+        ps_copy = ps.copy()
+        ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0, 1)
+        ps_copy['pitcher_role'] = ps_copy['avg_ppg'].apply(
+            lambda x: 'starter' if x >= 45 else 'reliever'
+        )
+        if lb_role == 'Starting Pitcher':
+            src_df = ps_copy[ps_copy['pitcher_role'] == 'starter']
+        else:
+            src_df = ps_copy
+        src_df = src_df[src_df['total_pitches'] >= min_p]
+        role_key = 'pitcher'
+    else:
+        src_df = hs[hs['total_pitches'] >= min_p]
+        role_key = 'hitter'
+    if sel_t != 'All':
+        src_df = src_df[src_df['team_tag'] == sel_t]
+    board = get_leaderboard(src_df, role_key, 0, 'All')
     if lb_role == 'Hitter':
         score_c = 'complete_uvi' if 'complete_uvi' in board.columns else 'batting_uvi'
     else:
         score_c = 'season_uvi'
-    board   = board.head(top_n)
-
+    board = board.head(top_n)
     # Top 5 cards
     st.markdown('### Top Performers')
     top5_cols = st.columns(5)
@@ -819,7 +988,8 @@ elif mode == '🏆 Leaderboard':
             <div class="stat-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                     <span style="font-size:1.1rem">#{i+1}</span>
-                    <span style="font-size:0.7rem;color:#6B7A8D">{row['team_tag']}</span>
+                    <span style="font-size:0.7rem;color:
+#6B7A8D">{row['team_tag']}</span>
                 </div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;margin-bottom:6px;line-height:1.1">{row['player_name']}</div>
                 <div class="value">{score:.0f}</div>
@@ -827,45 +997,42 @@ elif mode == '🏆 Leaderboard':
                 <div class="sub">{int(row['games'])} G · {int(row.get('total_pitches',0))} pitches</div>
             </div>
             """, unsafe_allow_html=True)
-
     st.markdown('---')
-
     # Bar chart
-    colors = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
+    colors_bar = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
+    role_label = lb_role + 's' if not lb_role.endswith('r') else lb_role + 's'
     fig = go.Figure(go.Bar(
         x=board['player_name'], y=board[score_c],
-        marker_color=colors,
+        marker_color=colors_bar,
         text=[f"{v:.0f}" for v in board[score_c]],
         textposition='outside',
-        textfont=dict(color='#E8E8E8',size=9,family='Barlow Condensed'),
+        textfont=dict(color='
+#E8E8E8', size=9, family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b> (%{customdata})<br>UVI: %{y:.1f}<extra></extra>',
         customdata=board['team_tag'],
     ))
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.4)')
     fig.update_layout(**PLOT, height=320,
-        title=dict(text=f'Top {len(board)} {lb_role}s — 2025 Season UVI',
-                   font=dict(size=13,family='Barlow Condensed'), x=0),
+        title=dict(text=f'Top {len(board)} {lb_role}s — {season_yr} UVI',
+                   font=dict(size=13, family='Barlow Condensed'), x=0),
         xaxis_tickangle=-40, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
-
     # Full table
     st.markdown('### Full Rankings')
-    show_cols  = ['player_name','team_tag', score_c,'tier','games','total_pitches']
-    col_labels = ['Player','Team','UVI','Tier','Games','Pitches']
+    show_cols  = ['player_name', 'team_tag', score_c, 'tier', 'games', 'total_pitches']
+    col_labels = ['Player', 'Team', 'UVI', 'Tier', 'Games', 'Pitches']
     if lb_role == 'Hitter':
         if 'speed_bonus' in board.columns:
-            show_cols.append('speed_bonus');  col_labels.append('Speed Bonus')
+            show_cols.append('speed_bonus');   col_labels.append('Speed Bonus')
         if 'defense_bonus' in board.columns:
             show_cols.append('defense_bonus'); col_labels.append('Defense Bonus')
     tbl = board[show_cols].copy()
     tbl.columns = col_labels
     st.dataframe(tbl, use_container_width=True, height=450)
-    season_yr = st.session_state.get('selected_season', 2025)
     csv = tbl.to_csv(index=False)
     st.download_button('⬇ Download Rankings', csv,
-                       file_name=f'uvi_{season_yr}_{lb_role.lower()}s.csv',
+                       file_name=f'uvi_{season_yr}_{lb_role.lower().replace(" ","_")}s.csv',
                        mime='text/csv')
-
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: SIMULATOR
 # ────────────────────────────────────────────────────────────────────────────
@@ -873,18 +1040,16 @@ elif mode == '🔮 Simulator':
     if not player or p_data.empty:
         st.info('Select a team and player from the sidebar.')
         st.stop()
-
     role_lower = role.lower()
     st.markdown(f'## 🔮 Predictive Simulator')
     st.markdown(f'**{player} · {TEAM_NAMES.get(team_code, team_code)} · {role}**')
     st.markdown('---')
-
     career_uvi = compute_span_uvi(p_data, role_lower)
     home_pf    = PARK_FACTORS.get(team_code, 1.0)
-
     col_info, col_g = st.columns([3,2])
     with col_info:
-        st.markdown('### 2025 Career Baseline')
+        season_yr = st.session_state.get('selected_season', 2026)
+        st.markdown(f'### {season_yr} Career Baseline')
         c1,c2 = st.columns(2)
         c1.metric('Season UVI', f'{career_uvi:.1f}')
         c2.metric('Home Park Factor', f'{home_pf:.2f}')
@@ -893,10 +1058,8 @@ elif mode == '🔮 Simulator':
                     unsafe_allow_html=True)
     with col_g:
         st.plotly_chart(gauge(career_uvi, 'Career UVI', 180), use_container_width=True)
-
     st.markdown('---')
     st.markdown('### Scenario Builder')
-
     sc1, sc2, sc3 = st.columns(3)
     with sc1:
         target_park = st.selectbox('Target Stadium', sorted(PARK_FACTORS.keys()),
@@ -909,7 +1072,6 @@ elif mode == '🔮 Simulator':
         night    = st.checkbox('Night Game', value=True)
     with sc3:
         rest_days = st.slider('Days Rest', 0, 5, 4)
-
     # Simulation
     target_pf = PARK_FACTORS.get(target_park, 1.0)
     total_s   = p_data['shift'].sum()
@@ -917,24 +1079,20 @@ elif mode == '🔮 Simulator':
     mean      = H_MEAN if role_lower=='hitter' else P_MEAN
     mult      = H_MULT if role_lower=='hitter' else P_MULT
     base_raw  = 100.0 + (total_s / total_p - mean) * mult
-
     if role_lower == 'hitter':
         neutral = base_raw * home_pf
         park_adj = neutral / target_pf - career_uvi
     else:
         neutral = base_raw / home_pf
         park_adj = neutral * target_pf - career_uvi
-
     temp_adj = (temp - 72) * (0.05 if role_lower=='hitter' else -0.04)
     opp_map  = {'Elite (top 10%)':-5.0,'Above Average':-2.5,'Average':0.0,'Below Average':2.5,'Weak':5.0}
     opp_adj  = opp_map.get(opp_tier,0.0) * (1 if role_lower=='hitter' else -1)
     night_adj = 1.5 if (night and role_lower=='hitter') else (-0.5 if night else 0.0)
     rest_adj  = (rest_days - 4) * (0.3 if role_lower=='pitcher' else 0.1)
-
     pred_uvi = career_uvi + park_adj + temp_adj + opp_adj + night_adj + rest_adj
     delta    = pred_uvi - career_uvi
     pt, pc   = uvi_tier(pred_uvi)
-
     st.markdown('---')
     st.markdown('### Prediction')
     r1,r2,r3,r4 = st.columns(4)
@@ -942,7 +1100,6 @@ elif mode == '🔮 Simulator':
     r2.metric('Stadium Effect', f'{park_adj:+.1f}')
     r3.metric('Weather Shift', f'{temp_adj:+.1f}')
     r4.metric('Projected Tier', f'{uvi_emoji(pred_uvi)} {pt}')
-
     adj_df = pd.DataFrame({
         'Factor': ['Stadium Effect','Temperature','Opposition','Time of Day','Rest'],
         'Value':  [park_adj, temp_adj, opp_adj, night_adj, rest_adj]
@@ -953,74 +1110,56 @@ elif mode == '🔮 Simulator':
         marker_color=bar_c,
         text=[f'{v:+.1f}' for v in adj_df['Value']],
         textposition='outside',
-        textfont=dict(color='#E8E8E8',size=11,family='Barlow Condensed'),
+        textfont=dict(color='
+#E8E8E8',size=11,family='Barlow Condensed'),
     ))
     fig.add_hline(y=0, line_color='rgba(255,255,255,0.2)')
     fig.update_layout(**PLOT, height=240, showlegend=False,
         title=dict(text='Adjustment Breakdown', font=dict(size=13,family='Barlow Condensed'), x=0))
     st.plotly_chart(fig, use_container_width=True)
-    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their 2025 season average.')
-
+    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their {season_yr} season average.')
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '📖 Methodology':
     st.markdown('## 📖 UVI Methodology')
     st.markdown('---')
-
     col1, col2 = st.columns([3,2])
     with col1:
         st.markdown("""
 ### What is UVI?
-
 The **Unified Value Index** is a pitch-by-pitch performance metric measuring every player against the full league, normalized across all 30 parks and all positions. Baseline = **100** (league average).
-
 ---
-
 ### The Formula
 
-```
 spp      = Σ(weighted_shift) / Σ(pitch_count)
 raw_uvi  = 100 + (spp − LEAGUE_MEAN) × MULTIPLIER
 uvi      = raw_uvi ÷ park_factor   [hitters]
 uvi      = raw_uvi × park_factor   [pitchers]
-```
 
 Each standard deviation above league average = **+50 UVI points**.
-
 ---
-
 ### Leverage Weighting
-
 Every pitch is weighted before contributing to UVI:
 
-```
 count_leverage  = {3-2: 1.6×, 2-2: 1.5×, 1-2: 1.4× ...}
 win_prob_lev    = clip(|Δwin_prob| × 10, 0.5, 3.0)
 leverage        = count_lev × win_prob_lev
 weighted_value  = delta_run_exp × leverage
-```
 
 A strikeout on 3-2 in a tie game = **~4-5× more** than a pitch in a blowout.
-
 ---
-
 ### Complete UVI (Hitters)
 
-```
 complete_uvi = batting_uvi
              + speed_bonus      (±10 pts max)
              + hustle_bonus     (±8 pts max)
              + defense_bonus    (±15 pts max)
              + burst_bonus      (±3 pts max)
-```
 
 **Hustle is measured independently of talent.** A slow player running harder than their personal average earns a positive hustle score — rewarding effort regardless of physical ability.
-
 ---
-
 ### Constants (frozen — never change between runs)
-
 | Constant | Value |
 |----------|-------|
 | P_MEAN | -0.01680715 |
@@ -1028,17 +1167,22 @@ complete_uvi = batting_uvi
 | H_MEAN | 0.01343597 |
 | H_MULT | 3921.86 |
 | League Avg Speed | 27.32 ft/sec |
-
         """)
     with col2:
         st.markdown('### Score Tiers')
         tiers = [
-            ('160+',   '🔥 Impact Player',    '#C9A84C', 'Historic value — 2+ std above avg'),
-            ('130–159','⭐ Proven Starter',    '#52BE80', 'Clear top-of-roster contributor'),
-            ('115–129','📈 Solid Contributor', '#5DADE2', 'Consistent positive value'),
-            ('90–114', '⚾ Roster Average',    '#AAB7B8', 'Professional baseline'),
-            ('70–89',  '📉 Fringe Roster',    '#E67E22', 'Below replacement threshold'),
-            ('<70',    '⚠️ DFA Candidate',    '#E74C3C', 'Significant negative contribution'),
+            ('160+',   '🔥 Impact Player',    '
+#C9A84C', 'Historic value — 2+ std above avg'),
+            ('130–159','⭐ Proven Starter',    '
+#52BE80', 'Clear top-of-roster contributor'),
+            ('115–129','📈 Solid Contributor', '
+#5DADE2', 'Consistent positive value'),
+            ('90–114', '⚾ Roster Average',    '
+#AAB7B8', 'Professional baseline'),
+            ('70–89',  '📉 Fringe Roster',    '
+#E67E22', 'Below replacement threshold'),
+            ('<70',    '⚠️ DFA Candidate',    '
+#E74C3C', 'Significant negative contribution'),
         ]
         for score, label, color, desc in tiers:
             st.markdown(f"""
@@ -1047,10 +1191,10 @@ complete_uvi = batting_uvi
                     <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:800;color:{color}">{score}</span>
                     <span style="font-size:0.78rem;color:{color}">{label}</span>
                 </div>
-                <div style="font-size:0.72rem;color:#6B7A8D;margin-top:3px">{desc}</div>
+                <div style="font-size:0.72rem;color:
+#6B7A8D;margin-top:3px">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
-
         st.markdown('---')
         st.markdown('### Data Sources')
         st.markdown("""
