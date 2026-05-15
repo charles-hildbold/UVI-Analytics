@@ -275,8 +275,7 @@ def trend_chart(df, role, window=7):
     fig.add_hrect(y0=90, y1=115, fillcolor='rgba(255,255,255,0.02)',
                   line_width=0, annotation_text='Roster Average Zone',
                   annotation_position='top left',
-                  annotation_font=dict(color='
-#6B7A8D', size=9))
+                  annotation_font=dict(color='#6B7A8D', size=9))
     if role == 'hitter':
         # Three tiers for hitters
         low     = df[df['reliability_level'] == 'low']
