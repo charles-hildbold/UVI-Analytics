@@ -296,11 +296,9 @@ def trend_chart(df, role, window=7):
     if not low.empty:
         fig.add_trace(go.Scatter(
             x=low['game_date'], y=low['game_uvi'], mode='markers',
-            marker=dict(size=6, color='
-#4A5568', opacity=0.65,
+            marker=dict(size=6, color='#4A5568', opacity=0.65,
                         symbol='circle-open',
-                        line=dict(color='
-#4A5568', width=1.5)),
+                        line=dict(color='#4A5568', width=1.5)),
             name=low_label,
             hovertemplate=(
                 '<b>%{x|%b %d}</b><br>UVI: %{y:.1f} · %{customdata} pitches<br>'
@@ -313,8 +311,7 @@ def trend_chart(df, role, window=7):
     if not partial.empty:
         fig.add_trace(go.Scatter(
             x=partial['game_date'], y=partial['game_uvi'], mode='markers',
-            marker=dict(size=6, color='
-#718096', opacity=0.55),
+            marker=dict(size=6, color='#718096', opacity=0.55),
             name=par_label,
             hovertemplate=(
                 '<b>%{x|%b %d}</b><br>UVI: %{y:.1f} · %{customdata} pitches<br>'
@@ -366,8 +363,7 @@ def monthly_chart(df, role):
         marker_color=colors,
         text=[f"{v:.0f}" for v in months['uvi']],
         textposition='outside',
-        textfont=dict(color='
-#E8E8E8', size=11, family='Barlow Condensed'),
+        textfont=dict(color='#E8E8E8', size=11, family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b><br>UVI: %{y:.1f}<extra></extra>',
     ))
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.4)')
