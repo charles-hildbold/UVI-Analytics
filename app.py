@@ -206,8 +206,7 @@ hr { border-color: var(--border) !important; }
 PLOT = dict(
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
-    font=dict(family='Barlow, sans-serif', color='
-#E8E8E8'),
+    font=dict(family='Barlow, sans-serif', color='#E8E8E8'),
     margin=dict(l=10,r=10,t=36,b=10),
     xaxis=dict(gridcolor='rgba(255,255,255,0.04)', zerolinecolor='rgba(255,255,255,0.06)'),
     yaxis=dict(gridcolor='rgba(255,255,255,0.04)', zerolinecolor='rgba(255,255,255,0.06)'),
