@@ -865,7 +865,7 @@ if mode == '📊 Player Audit':
             available_dates,
             index=len(available_dates)-1,
             format_func=lambda d: d.strftime('%B %d, %Y'),
-            key='game_detail_date'
+            key=f'game_detail_date_{player}_{st.session_state.selected_season}'
         )
 
         game_detail_panel(player, role, sel_date, p_data, stats_source)
