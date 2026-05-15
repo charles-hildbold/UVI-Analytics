@@ -212,11 +212,8 @@ PLOT = dict(
     yaxis=dict(gridcolor='rgba(255,255,255,0.04)', zerolinecolor='rgba(255,255,255,0.06)'),
     legend=dict(bgcolor='rgba(0,0,0,0)', borderwidth=0),
 )
-GOLD = '
-#C9A84C'; RED = '
-#C0392B'; GRN = '
-#27AE60'; BLUE = '
-#2E86AB'
+GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
+
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def get_season_data(season):
