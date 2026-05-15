@@ -1,4 +1,4 @@
- """
+"""
 app.py  —  Unified Value Index (UVI) | MLB Performance Audit Engine
 Display only. All calculations in uvi_engine.py.
 """
