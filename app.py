@@ -17,7 +17,7 @@ from uvi_engine import (
     PARK_FACTORS, TEAM_NAMES,
     P_MEAN, P_MULT, H_MEAN, H_MULT,
     LEAGUE_AVG_SPEED,
-    load_game_stats, load_season_data, load_playoff_data, get_last_updated,
+    load_game_stats, load_season_data, get_last_updated,
     MIN_PITCH_PITCHER, MIN_PITCH_HITTER_FULL, MIN_PITCH_HITTER_PARTIAL,
 )
 
@@ -223,13 +223,8 @@ GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
 
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def get_season_data(season):
-    if season == '2025_playoffs':
-        hg, pg, hs, ps = load_playoff_data(2025, 'data')
-        if hg is None:
-            return load_season_data(2025, 'data')
-        return hg, pg, hs, ps
-    return load_season_data(int(season), 'data')
+def get_season_data(season: int):
+    return load_season_data(season, 'data')
 
 @st.cache_data(show_spinner=False)
 def get_data():
@@ -239,9 +234,8 @@ def get_data():
 def get_game_stats():
     return load_game_stats('data')
 
-# Season selection lives in session state so sidebar can set it
 if 'selected_season' not in st.session_state:
-    st.session_state.selected_season = 2026
+    st.session_state.selected_season = 2025
 
 try:
     hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
@@ -421,10 +415,11 @@ def component_breakdown(row):
 
 # ── GAME LOG TABLE ────────────────────────────────────────────────────────────
 def game_log_table(df, role):
-    log = df[['game_date','team_tag','game_uvi','pitch_count']].copy()
+    log = df[['game_date','team_tag','game_uvi','pitch_count','shift']].copy()
     log['game_date'] = log['game_date'].dt.strftime('%Y-%m-%d')
     log['game_uvi']  = log['game_uvi'].round(1)
-    log.columns      = ['Date','Team','UVI','Pitches']
+    log['shift']     = log['shift'].round(3)
+    log.columns      = ['Date','Team','UVI','Pitches','Shift']
     log = log.sort_values('Date', ascending=False)
     return log
 
@@ -532,65 +527,46 @@ with st.sidebar:
 
     st.markdown('---')
     mode = st.radio('Navigation', [
-        '🏠 Home',
         '📊 Player Audit',
         '🏆 Leaderboard',
         '🔮 Simulator',
         '📖 Methodology',
     ])
-
     st.markdown('---')
-    # Season toggle
-    season_options = ['📅 2025 — Full Season', '🏆 2025 — Postseason', '🔴 2026 — Current Season']
-    
-    # Tell the radio button to select index 1 (2026) if that is our session state
-    if st.session_state.selected_season == 2026:
-        default_idx = 2
-    elif st.session_state.selected_season == '2025_playoffs':
-        st.markdown(
-            '<div style="background:rgba(82,190,128,0.10);border:1px solid rgba(82,190,128,0.3);'
-            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#52BE80;">'
-            '🏆 <b>2025 Postseason</b><br>Wild Card · ALDS · ALCS · World Series</div>',
-            unsafe_allow_html=True)
-        default_idx = 1
-    else:
-        default_idx = 0
-    season_choice  = st.radio('Season', season_options, index=default_idx)
-    
-    if '2026' in season_choice:
-        new_season = 2026
-    elif 'Postseason' in season_choice:
-        new_season = '2025_playoffs'
-    else:
-        new_season = 2025
+    season_choice = st.radio('Season', [
+        '📅 2025 — Full Season',
+        '🔴 2026 — Current Season',
+    ])
+    new_season = 2026 if '2026' in season_choice else 2025
     if new_season != st.session_state.selected_season:
         st.session_state.selected_season = new_season
         st.cache_data.clear()
         st.rerun()
-
-    # Current as of banner for 2026
     if st.session_state.selected_season == 2026:
         if last_updated:
             st.markdown(
-                f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
-                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                f'<div style="background:rgba(201,168,76,0.12);border:1px solid '
+                f'rgba(201,168,76,0.3);border-radius:6px;padding:8px 12px;'
+                f'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
                 unsafe_allow_html=True)
         else:
             st.markdown(
-                '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
-                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                '<div style="background:rgba(201,168,76,0.08);border:1px solid '
+                'rgba(201,168,76,0.2);border-radius:6px;padding:8px 12px;'
+                'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
                 '🔴 <b>2026 Season</b><br>Data updating soon</div>',
                 unsafe_allow_html=True)
     else:
         st.markdown(
-            '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
-            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
+            '<div style="background:rgba(255,255,255,0.04);border:1px solid '
+            'rgba(255,255,255,0.08);border-radius:6px;padding:8px 12px;'
+            'margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
             '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
             unsafe_allow_html=True)
     st.markdown('---')
 
-    if mode in ['📊 Player Audit', '🔮 Simulator', '🏠 Home'] and DATA_OK:
+    if mode in ['📊 Player Audit', '🔮 Simulator'] and DATA_OK:
         role = st.radio('Role', ['Hitter', 'Pitcher'])
         teams_sorted = sorted(TEAM_NAMES.keys())
         team_labels  = [f"{t} — {TEAM_NAMES[t]}" for t in teams_sorted]
@@ -634,173 +610,6 @@ if not DATA_OK:
     st.stop()
 
 # ────────────────────────────────────────────────────────────────────────────
-# PAGE: HOME
-# ────────────────────────────────────────────────────────────────────────────
-if mode == '🏠 Home':
-    season_yr = st.session_state.get('selected_season', 2025)
-
-    st.markdown(f'## ⚾ UVI — {season_yr} Season Snapshot')
-    st.markdown('Park-neutralized · Leverage-weighted · All 30 teams')
-    st.markdown('---')
-
-    if DATA_OK:
-        score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
-        score_p = 'season_uvi'
-
-        min_p_h = 150 if season_yr == 2025 else 50
-        min_p_p = 150
-
-        top_h = hs[hs['total_pitches'] >= min_p_h].sort_values(
-            score_h, ascending=False).head(1).iloc[0]
-        top_p_df = ps.copy()
-        top_p_df['avg_ppg'] = top_p_df['total_pitches'] / top_p_df['games'].replace(0,1)
-        top_starters = top_p_df[
-            (top_p_df['avg_ppg'] >= 45) &
-            (top_p_df['total_pitches'] >= min_p_p)
-        ].sort_values(score_p, ascending=False)
-        top_p = top_starters.head(1).iloc[0] if not top_starters.empty else None
-
-        # Biggest 7-day risers
-        hg_recent = hg[hg['game_date'] >= hg['game_date'].max() - pd.Timedelta(days=7)]
-        risers = hg_recent.groupby('player_name').apply(
-            lambda g: compute_span_uvi(g, 'hitter')
-        ).reset_index()
-        risers.columns = ['player_name', 'recent_uvi']
-        risers = risers.merge(
-            hs[['player_name', score_h, 'team_tag']],
-            on='player_name', how='left'
-        )
-        risers['delta'] = risers['recent_uvi'] - risers[score_h]
-        top_riser = risers.sort_values('delta', ascending=False).head(1).iloc[0] \
-                    if not risers.empty else None
-
-        # ── SNAPSHOT CARDS ──────────────────────────────────────────────
-        st.markdown('### 🔥 Current Leaders')
-        snap_cols = st.columns(3)
-
-        h_score = float(top_h[score_h])
-        h_tier, h_color = uvi_tier(h_score)
-        with snap_cols[0]:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
-                    TOP HITTER · {top_h['team_tag']}</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
-                    font-weight:700;margin-bottom:6px">{top_h['player_name']}</div>
-                <div class="value" style="color:{h_color}">{h_score:.0f}</div>
-                <div class="sub">{uvi_emoji(h_score)} {h_tier}</div>
-                <div class="sub">{int(top_h['games'])} G · {int(top_h['total_pitches'])} pitches</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        if top_p is not None:
-            p_score = float(top_p[score_p])
-            p_tier, p_color = uvi_tier(p_score)
-            with snap_cols[1]:
-                st.markdown(f"""
-                <div class="stat-card">
-                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
-                        TOP STARTER · {top_p['team_tag']}</div>
-                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
-                        font-weight:700;margin-bottom:6px">{top_p['player_name']}</div>
-                    <div class="value" style="color:{p_color}">{p_score:.0f}</div>
-                    <div class="sub">{uvi_emoji(p_score)} {p_tier}</div>
-                    <div class="sub">{int(top_p['games'])} G · {int(top_p['total_pitches'])} pitches</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        if top_riser is not None:
-            r_score = float(top_riser['recent_uvi'])
-            r_tier, r_color = uvi_tier(r_score)
-            with snap_cols[2]:
-                st.markdown(f"""
-                <div class="stat-card">
-                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
-                        BIGGEST RISER · LAST 7 DAYS · {top_riser.get('team_tag','')}</div>
-                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;
-                        font-weight:700;margin-bottom:6px">{top_riser['player_name']}</div>
-                    <div class="value" style="color:{r_color}">{r_score:.0f}</div>
-                    <div class="sub">{uvi_emoji(r_score)} {r_tier}</div>
-                    <div class="sub" style="color:#52BE80">↑ {top_riser['delta']:+.1f} vs season avg</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown('---')
-
-        # ── SEARCH ──────────────────────────────────────────────────────
-        st.markdown('### 🔍 Find Any Player')
-        col_search1, col_search2 = st.columns([3, 1])
-        with col_search1:
-            all_players = sorted(hs['player_name'].unique().tolist() +
-                                  ps['player_name'].unique().tolist())
-            search_player = st.selectbox('Search by player name',
-                                          [''] + all_players,
-                                          key='home_search')
-        with col_search2:
-            search_role = st.radio('Role', ['Hitter', 'Pitcher'],
-                                    key='home_role', horizontal=True)
-
-        if search_player:
-            s_src = hs if search_role == 'Hitter' else ps
-            s_score = score_h if search_role == 'Hitter' else score_p
-            s_row_home = s_src[s_src['player_name'] == search_player]
-            if not s_row_home.empty:
-                r = s_row_home.iloc[0]
-                sc = float(r.get(s_score, 100))
-                tl, tc = uvi_tier(sc)
-                teams_display = r.get('all_teams', r.get('team_tag', ''))
-                st.markdown(f"""
-                <div class="stat-card" style="max-width:400px">
-                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">
-                        {search_role.upper()} · {teams_display}</div>
-                    <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;
-                        font-weight:700;margin-bottom:8px">{search_player}</div>
-                    <div class="value" style="color:{tc}">{sc:.0f}</div>
-                    <div class="sub">{uvi_emoji(sc)} {tl}</div>
-                    <div class="sub">{int(r.get('games',0))} G · {int(r.get('total_pitches',0))} pitches</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.caption('Go to Player Audit in the sidebar for the full breakdown.')
-            else:
-                st.info(f'No {search_role.lower()} data found for {search_player}.')
-
-        st.markdown('---')
-
-        # ── TOP 10 QUICK LEADERBOARDS ────────────────────────────────
-        st.markdown('### 📊 Quick Rankings')
-        ql_col1, ql_col2 = st.columns(2)
-
-        with ql_col1:
-            st.markdown('**Top 10 Hitters**')
-            top10h = hs[hs['total_pitches'] >= min_p_h].sort_values(
-                score_h, ascending=False).head(10)[
-                ['player_name','team_tag', score_h,'games']].copy()
-            top10h.columns = ['Player','Team','UVI','G']
-            top10h['UVI'] = top10h['UVI'].round(1)
-            top10h.index = range(1, len(top10h)+1)
-            st.dataframe(top10h, use_container_width=True, height=370)
-
-        with ql_col2:
-            st.markdown('**Top 10 Starting Pitchers**')
-            top10p = top_starters.head(10)[
-                ['player_name','team_tag', score_p,'games']].copy()
-            top10p.columns = ['Player','Team','UVI','G']
-            top10p['UVI'] = top10p['UVI'].round(1)
-            top10p.index = range(1, len(top10p)+1)
-            st.dataframe(top10p, use_container_width=True, height=370)
-
-        st.markdown('---')
-        st.markdown(
-            f'<div style="text-align:center;font-size:0.8rem;color:#6B7A8D">'
-            f'UVI measures every pitch weighted by count leverage and win probability. '
-            f'100 = league average · Each 50 points = 1 standard deviation · '
-            f'Data through {last_updated if last_updated else season_yr}</div>',
-            unsafe_allow_html=True)
-
-    else:
-        st.error('Data not available. Please check your connection.')
-
-# ────────────────────────────────────────────────────────────────────────────
 # PAGE: PLAYER AUDIT
 # ────────────────────────────────────────────────────────────────────────────
 if mode == '📊 Player Audit':
@@ -825,7 +634,7 @@ if mode == '📊 Player Audit':
     st.markdown(f"""
     <div class="player-header">
         <div class="name">{player}</div>
-        <div class="meta">{s_row.iloc[0]['all_teams'] if not s_row.empty and 'all_teams' in s_row.columns and '/' in str(s_row.iloc[0].get('all_teams','')) else 		TEAM_NAMES.get(team_code, team_code)} &nbsp;·&nbsp; {role} &nbsp;·&nbsp;
+        <div class="meta">{TEAM_NAMES.get(team_code, team_code)} &nbsp;·&nbsp; {role} &nbsp;·&nbsp;
         <span style="color:{tier_color}">{emoji} {tier}</span></div>
     </div>
     """, unsafe_allow_html=True)
@@ -885,7 +694,7 @@ if mode == '📊 Player Audit':
             available_dates,
             index=len(available_dates)-1,
             format_func=lambda d: d.strftime('%B %d, %Y'),
-            key=f'game_detail_date_{player}_{st.session_state.selected_season}'
+            key='game_detail_date'
         )
 
         game_detail_panel(player, role, sel_date, p_data, stats_source)
@@ -978,63 +787,26 @@ if mode == '📊 Player Audit':
 # PAGE: LEADERBOARD
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '🏆 Leaderboard':
-    season_yr = st.session_state.get('selected_season', 2025)
-    st.markdown(f'## 🏆 {season_yr} Season Leaderboard')
+    st.markdown('## 🏆 2025 Season Leaderboard')
     st.markdown('Park-neutralized · All 30 teams · Leverage-weighted')
     st.markdown('---')
 
-    lb_role = st.radio('Role', ['Hitter', 'Starting Pitcher', 'All Pitchers'],
-                       horizontal=True, key='lb_r')
-
+    lb_role = st.radio('Role', ['Hitter','Pitcher'], horizontal=True, key='lb_r')
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        teams_all = ['All'] + sorted(TEAM_NAMES.keys())
-        sel_t     = st.selectbox('Filter by Team', teams_all, key='lb_t')
+        teams_all  = ['All'] + sorted(TEAM_NAMES.keys())
+        sel_t      = st.selectbox('Filter by Team', teams_all, key='lb_t')
     with col_f2:
-        if lb_role == 'Hitter':
-            min_label   = 'Min pitches seen'
-            min_default = 50
-            min_max     = 300
-        elif lb_role == 'Starting Pitcher':
-            min_label   = 'Min pitches thrown'
-            min_default = 150
-            min_max     = 600
-        else:
-            min_label   = 'Min pitches thrown'
-            min_default = 30
-            min_max     = 300
-        min_p = st.slider(min_label, 10, min_max, min_default, key='lb_g')
+        min_g = st.slider('Min games', 5, 50, 10, key='lb_g')
     with col_f3:
         top_n = st.slider('Show top N', 10, 50, 25, key='lb_n')
 
-    # Classify pitchers by role based on avg pitches per game
-    if lb_role != 'Hitter':
-        ps_copy = ps.copy()
-        ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0, 1)
-        ps_copy['pitcher_role'] = ps_copy['avg_ppg'].apply(
-            lambda x: 'starter' if x >= 45 else 'reliever'
-        )
-        if lb_role == 'Starting Pitcher':
-            src_df = ps_copy[ps_copy['pitcher_role'] == 'starter']
-        else:
-            src_df = ps_copy
-        src_df = src_df[src_df['total_pitches'] >= min_p]
-        role_key = 'pitcher'
-    else:
-        src_df = hs[hs['total_pitches'] >= min_p]
-        role_key = 'hitter'
-
-    if sel_t != 'All':
-        src_df = src_df[src_df['team_tag'] == sel_t]
-
-    board = get_leaderboard(src_df, role_key, 0, 'All')
-
+    board   = get_leaderboard(hs if lb_role=='Hitter' else ps, lb_role.lower(), min_g, sel_t)
     if lb_role == 'Hitter':
         score_c = 'complete_uvi' if 'complete_uvi' in board.columns else 'batting_uvi'
     else:
         score_c = 'season_uvi'
-
-    board = board.head(top_n)
+    board   = board.head(top_n)
 
     # Top 5 cards
     st.markdown('### Top Performers')
@@ -1059,40 +831,39 @@ elif mode == '🏆 Leaderboard':
     st.markdown('---')
 
     # Bar chart
-    colors_bar = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
-    role_label = lb_role + 's' if not lb_role.endswith('r') else lb_role + 's'
+    colors = [uvi_tier(float(r[score_c]))[1] for _, r in board.iterrows()]
     fig = go.Figure(go.Bar(
         x=board['player_name'], y=board[score_c],
-        marker_color=colors_bar,
+        marker_color=colors,
         text=[f"{v:.0f}" for v in board[score_c]],
         textposition='outside',
-        textfont=dict(color='#E8E8E8', size=9, family='Barlow Condensed'),
+        textfont=dict(color='#E8E8E8',size=9,family='Barlow Condensed'),
         hovertemplate='<b>%{x}</b> (%{customdata})<br>UVI: %{y:.1f}<extra></extra>',
         customdata=board['team_tag'],
     ))
     fig.add_hline(y=100, line_dash='dot', line_color='rgba(201,168,76,0.4)')
     fig.update_layout(**PLOT, height=320,
-        title=dict(text=f'Top {len(board)} {lb_role}s — {season_yr} UVI',
-                   font=dict(size=13, family='Barlow Condensed'), x=0),
+        title=dict(text=f'Top {len(board)} {lb_role}s — 2025 Season UVI',
+                   font=dict(size=13,family='Barlow Condensed'), x=0),
         xaxis_tickangle=-40, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
     # Full table
     st.markdown('### Full Rankings')
-    show_cols  = ['player_name', 'team_tag', score_c, 'tier', 'games', 'total_pitches']
-    col_labels = ['Player', 'Team', 'UVI', 'Tier', 'Games', 'Pitches']
+    show_cols  = ['player_name','team_tag', score_c,'tier','games','total_pitches']
+    col_labels = ['Player','Team','UVI','Tier','Games','Pitches']
     if lb_role == 'Hitter':
         if 'speed_bonus' in board.columns:
-            show_cols.append('speed_bonus');   col_labels.append('Speed Bonus')
+            show_cols.append('speed_bonus');  col_labels.append('Speed Bonus')
         if 'defense_bonus' in board.columns:
             show_cols.append('defense_bonus'); col_labels.append('Defense Bonus')
     tbl = board[show_cols].copy()
     tbl.columns = col_labels
     st.dataframe(tbl, use_container_width=True, height=450)
-
+    season_yr = st.session_state.get('selected_season', 2025)
     csv = tbl.to_csv(index=False)
     st.download_button('⬇ Download Rankings', csv,
-                       file_name=f'uvi_{season_yr}_{lb_role.lower().replace(" ","_")}s.csv',
+                       file_name=f'uvi_{season_yr}_{lb_role.lower()}s.csv',
                        mime='text/csv')
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -1113,8 +884,7 @@ elif mode == '🔮 Simulator':
 
     col_info, col_g = st.columns([3,2])
     with col_info:
-        season_yr = st.session_state.get('selected_season', 2026)
-        st.markdown(f'### {season_yr} Career Baseline')
+        st.markdown('### 2025 Career Baseline')
         c1,c2 = st.columns(2)
         c1.metric('Season UVI', f'{career_uvi:.1f}')
         c2.metric('Home Park Factor', f'{home_pf:.2f}')
@@ -1189,7 +959,7 @@ elif mode == '🔮 Simulator':
     fig.update_layout(**PLOT, height=240, showlegend=False,
         title=dict(text='Adjustment Breakdown', font=dict(size=13,family='Barlow Condensed'), x=0))
     st.plotly_chart(fig, use_container_width=True)
-    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their {season_yr} season average.')
+    st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their 2025 season average.')
 
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
