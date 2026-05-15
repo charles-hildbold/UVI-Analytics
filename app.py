@@ -246,12 +246,10 @@ def gauge(value, title='UVI', height=200):
     fig = go.Figure(go.Indicator(
         mode='gauge+number',
         value=value,
-        title=dict(text=title, font=dict(size=12, color='
-#6B7A8D', family='Barlow Condensed')),
+        title=dict(text=title, font=dict(size=12, color='#6B7A8D', family='Barlow Condensed')),
         number=dict(font=dict(size=40, color=GOLD, family='Barlow Condensed')),
         gauge=dict(
-            axis=dict(range=[0,200], tickfont=dict(color='
-#6B7A8D', size=9)),
+            axis=dict(range=[0,200], tickfont=dict(color='#6B7A8D', size=9)),
             bar=dict(color=GOLD, thickness=0.2),
             bgcolor='rgba(255,255,255,0.03)',
             borderwidth=0.5, bordercolor='rgba(201,168,76,0.2)',
