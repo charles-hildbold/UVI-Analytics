@@ -506,7 +506,6 @@ with st.sidebar:
         '🏠 Home',
         '📊 Player Audit',
         '🏆 Leaderboard',
-        '🔮 Simulator',
         '📖 Methodology',
     ])
     st.markdown('---')
