@@ -166,6 +166,7 @@ DATA_FILES_2026 = [
     'outs_above_average_2026.csv',
     'running_splits_2026.csv',
     'sprint_speed_2026.csv',
+    'player_names.json',
 ]
 
 DATA_FILES = DATA_FILES_2025 + DATA_FILES_2025_PLAYOFFS + DATA_FILES_2026
