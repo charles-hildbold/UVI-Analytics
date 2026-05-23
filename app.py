@@ -505,6 +505,7 @@ with st.sidebar:
     mode = st.radio('Navigation', [
         '🏠 Home',
         '📊 Player Audit',
+        '👤 Player Profile',
         '🏆 Leaderboard',
         '📖 Methodology',
     ])
@@ -742,6 +743,201 @@ if mode == '🏠 Home':
             unsafe_allow_html=True)
     else:
         st.error('Data not available. Please check your connection.')
+
+# ────────────────────────────────────────────────────────────────────────────
+# PAGE: PLAYER PROFILE
+# ────────────────────────────────────────────────────────────────────────────
+if mode == '👤 Player Profile':
+    st.markdown('## 👤 Player Profile')
+    st.markdown('Career view across all seasons and teams')
+    st.markdown('---')
+
+    if DATA_OK:
+        @st.cache_data(show_spinner=False)
+        def load_all_seasons():
+            seasons = {}
+            try:
+                hg25, pg25, hs25, ps25 = load_season_data(2025, 'data')
+                seasons['2025'] = {'hg': hg25, 'pg': pg25,
+                                   'hs': hs25, 'ps': ps25,
+                                   'label': '📅 2025 Regular Season'}
+            except:
+                pass
+            try:
+                hgp, pgp, hsp, psp = load_playoff_data(2025, 'data')
+                if hgp is not None:
+                    seasons['2025_playoffs'] = {'hg': hgp, 'pg': pgp,
+                                                'hs': hsp, 'ps': psp,
+                                                'label': '🏆 2025 Postseason'}
+            except:
+                pass
+            try:
+                hg26, pg26, hs26, ps26 = load_season_data(2026, 'data')
+                seasons['2026'] = {'hg': hg26, 'pg': pg26,
+                                   'hs': hs26, 'ps': ps26,
+                                   'label': '🔴 2026 Current Season'}
+            except:
+                pass
+            return seasons
+
+        all_seasons = load_all_seasons()
+
+        # Build player lists across all seasons
+        all_hitter_names = set()
+        all_pitcher_names = set()
+        for s_data in all_seasons.values():
+            all_hitter_names.update(
+                s_data['hs']['player_name'].dropna().unique())
+            all_pitcher_names.update(
+                s_data['ps']['player_name'].dropna().unique())
+
+        col_s1, col_s2 = st.columns([3, 1])
+        with col_s1:
+            profile_role = st.radio('Role', ['Hitter', 'Pitcher'],
+                                     key='profile_role', horizontal=True)
+            name_list = sorted(all_hitter_names) if profile_role == 'Hitter' \
+                        else sorted(all_pitcher_names)
+            profile_player = st.selectbox('Search player',
+                                           [''] + name_list,
+                                           key='profile_player')
+        with col_s2:
+            st.markdown('<div style="height:28px"></div>',
+                        unsafe_allow_html=True)
+            st.caption(f'{len(name_list):,} players across all seasons')
+
+        if profile_player:
+            role_lower = profile_role.lower()
+            score_key  = 'complete_uvi' if profile_role == 'Hitter' \
+                         else 'season_uvi'
+
+            # Collect player data from every season
+            player_seasons = {}
+            for s_key, s_data in all_seasons.items():
+                gdf = s_data['hg'] if profile_role == 'Hitter' else s_data['pg']
+                sdf = s_data['hs'] if profile_role == 'Hitter' else s_data['ps']
+                games = gdf[gdf['player_name'] == profile_player].copy()
+                if games.empty:
+                    continue
+                games = games.sort_values('game_date').reset_index(drop=True)
+                games['game_uvi'] = compute_game_uvi_col(games, role_lower)
+                season_row = sdf[sdf['player_name'] == profile_player]
+                if not season_row.empty:
+                    sc = season_row.iloc[0].get(score_key)
+                    if sc is None:
+                        sc = season_row.iloc[0].get('batting_uvi',
+                             compute_span_uvi(games, role_lower))
+                    uvi_score = float(sc)
+                else:
+                    uvi_score = compute_span_uvi(games, role_lower)
+                player_seasons[s_key] = {
+                    'games':      games,
+                    'uvi':        uvi_score,
+                    'season_row': season_row,
+                    'label':      s_data['label'],
+                }
+
+            if not player_seasons:
+                st.info(f'No data found for {profile_player}.')
+            else:
+                # Teams display
+                all_teams_seen = []
+                for s_info in player_seasons.values():
+                    all_teams_seen.extend(
+                        s_info['games']['team_tag'].unique().tolist())
+                teams_str = ' / '.join(dict.fromkeys(all_teams_seen))
+
+                # Player header
+                best_uvi = max(s['uvi'] for s in player_seasons.values())
+                best_tier, best_color = uvi_tier(best_uvi)
+
+                st.markdown(f"""
+                <div class="player-header">
+                    <div class="name">{profile_player}</div>
+                    <div class="meta">{teams_str} &nbsp;·&nbsp;
+                    {profile_role} &nbsp;·&nbsp;
+                    <span style="color:{best_color}">
+                    {uvi_emoji(best_uvi)} Career Peak: {best_uvi:.0f}
+                    </span></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Season comparison cards
+                st.markdown('### 📊 Season-by-Season UVI')
+                card_cols = st.columns(len(player_seasons))
+                for i, (s_key, s_info) in enumerate(player_seasons.items()):
+                    sc = s_info['uvi']
+                    tl, tc = uvi_tier(sc)
+                    g_count = s_info['games']['game_pk'].nunique() \
+                              if 'game_pk' in s_info['games'].columns \
+                              else len(s_info['games'])
+                    p_count = int(s_info['games']['pitch_count'].sum())
+                    with card_cols[i]:
+                        st.markdown(f"""
+                        <div class="stat-card">
+                            <div style="font-size:0.65rem;color:#6B7A8D;
+                                text-transform:uppercase;letter-spacing:0.1em;
+                                margin-bottom:6px">{s_info['label']}</div>
+                            <div class="value" style="color:{tc}">{sc:.0f}</div>
+                            <div class="sub" style="color:{tc}">
+                                {uvi_emoji(sc)} {tl}</div>
+                            <div class="sub">
+                                {g_count} G · {p_count:,} pitches</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                st.markdown('---')
+
+                # Year-over-year bar chart
+                st.markdown('### 📈 UVI by Season')
+                bar_labels = [s['label'] for s in player_seasons.values()]
+                bar_values = [s['uvi'] for s in player_seasons.values()]
+                bar_colors = [uvi_tier(v)[1] for v in bar_values]
+                fig_bar = go.Figure(go.Bar(
+                    x=bar_labels, y=bar_values,
+                    marker_color=bar_colors,
+                    text=[f'{v:.0f}' for v in bar_values],
+                    textposition='outside',
+                    textfont=dict(color='#E8E8E8', size=12,
+                                  family='Barlow Condensed'),
+                ))
+                fig_bar.add_hline(y=100, line_dash='dot',
+                                   line_color='rgba(201,168,76,0.4)')
+                fig_bar.update_layout(**PLOT, height=280, showlegend=False,
+                    title=dict(
+                        text=f'{profile_player} — UVI by Season',
+                        font=dict(size=13, family='Barlow Condensed'), x=0))
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+                st.markdown('---')
+
+                # Career game log
+                st.markdown('### 📋 Career Game Log')
+                all_games_list = []
+                for s_key, s_info in player_seasons.items():
+                    g = s_info['games'][['game_date','team_tag',
+                                         'game_uvi','pitch_count']].copy()
+                    g['season'] = s_info['label']
+                    all_games_list.append(g)
+
+                all_games = pd.concat(all_games_list, ignore_index=True)
+                all_games = all_games.sort_values('game_date', ascending=False)
+                all_games['game_date'] = pd.to_datetime(
+                    all_games['game_date']).dt.strftime('%Y-%m-%d')
+                all_games['game_uvi'] = all_games['game_uvi'].round(1)
+                all_games.columns = ['Date','Team','UVI','Pitches','Season']
+
+                st.dataframe(all_games, hide_index=True,
+                              use_container_width=True, height=420)
+
+                csv = all_games.to_csv(index=False)
+                st.download_button(
+                    '⬇ Download Career Game Log', csv,
+                    file_name=f'{profile_player.replace(" ","_")}_career_uvi.csv',
+                    mime='text/csv')
+    else:
+        st.error('Data not available.')
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: PLAYER AUDIT
 # ────────────────────────────────────────────────────────────────────────────
