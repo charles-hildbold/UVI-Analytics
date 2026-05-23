@@ -166,7 +166,8 @@ DATA_FILES_2026 = [
     'outs_above_average_2026.csv',
     'running_splits_2026.csv',
     'sprint_speed_2026.csv',
-    'player_names.json',
+    'hitter_game_stats_2026.csv',
+    'pitcher_game_stats_2026.csv',
 ]
 
 DATA_FILES = DATA_FILES_2025 + DATA_FILES_2025_PLAYOFFS + DATA_FILES_2026
@@ -246,12 +247,17 @@ def load_data(data_dir: str = 'data') -> tuple:
     ps = pd.read_csv(base / 'pitcher_season_2025.csv')
     return hg, pg, hs, ps
 
-def load_game_stats(data_dir: str = 'data') -> tuple:
-    """Load traditional box score stats. Returns (hitter_stats, pitcher_stats)."""
+def load_game_stats(data_dir: str = 'data', season: int = 2025) -> tuple:
+    """Loads traditional box score stats for the given season."""
     ensure_data(data_dir)
     base = Path(data_dir)
-    hgs = pd.read_csv(base / 'hitter_game_stats_2025.csv')
-    pgs = pd.read_csv(base / 'pitcher_game_stats_2025.csv')
+    hgs_path = base / f'hitter_game_stats_{season}.csv'
+    pgs_path = base / f'pitcher_game_stats_{season}.csv'
+    if not hgs_path.exists():
+        hgs_path = base / 'hitter_game_stats_2025.csv'
+        pgs_path = base / 'pitcher_game_stats_2025.csv'
+    hgs = pd.read_csv(hgs_path)
+    pgs = pd.read_csv(pgs_path)
     hgs['game_date'] = pd.to_datetime(hgs['game_date'])
     pgs['game_date'] = pd.to_datetime(pgs['game_date'])
     return hgs, pgs
