@@ -484,9 +484,10 @@ def game_detail_panel(player, role, game_date, p_data, stats_df):
         c1b,c2b,c3b,c4b,c5b = st.columns(5)
         c1b.metric('OPS',          ops)
         c2b.metric('Pitches Seen', int(s.get('pitches_seen',0)))
-        c3b.metric('Hard Hit Balls',int(s.get('hard_hit',0)))
-        c4b.metric('Avg Exit Velo', f"{float(ev):.1f} mph" if ev and not np.isnan(float(ev)) else '—')
-        c5b.metric('xwOBA', f"{float(xw):.3f}" if xw and not np.isnan(float(xw)) else '—')
+        hard_hit = s.get('hard_hit')
+        c3b.metric('Hard Hit Balls', int(hard_hit) if hard_hit is not None else '—')
+        c4b.metric('Avg Exit Velo', f"{float(ev):.1f} mph" if ev is not None and not np.isnan(float(ev)) else '—')
+        c5b.metric('xwOBA', f"{float(xw):.3f}" if xw is not None and not np.isnan(float(xw)) else '—')
         note=[]
         if hr>=2: note.append(f"multi-homer game ({hr} HR)")
         if h>=3:  note.append(f"multi-hit performance ({h} hits)")
