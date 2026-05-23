@@ -227,14 +227,17 @@ def get_season_data(season):
 def get_data():
     return load_data('data')
 @st.cache_data(show_spinner=False)
-def get_game_stats():
-    return load_game_stats('data')
+def get_game_stats(season=2025):
+    return load_game_stats('data', season)
 # Season selection lives in session state so sidebar can set it
 if 'selected_season' not in st.session_state:
     st.session_state.selected_season = 2026
 try:
     hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
-    hgs, pgs = get_game_stats()
+    season_for_stats = st.session_state.selected_season
+if season_for_stats == '2025_playoffs':
+    season_for_stats = 2025
+hgs, pgs = get_game_stats(int(season_for_stats))
     last_updated = get_last_updated('data')
     DATA_OK = True
 except Exception as e:
