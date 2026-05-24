@@ -791,30 +791,34 @@ if mode == '👤 Player Profile':
         @st.cache_data(show_spinner=False)
         def load_all_seasons():
             seasons = {}
-            try:
-                hg25, pg25, hs25, ps25 = load_season_data(2025, 'data')
-                seasons['2025'] = {'hg': hg25, 'pg': pg25,
-                                   'hs': hs25, 'ps': ps25,
-                                   'label': '📅 2025 Regular Season'}
-            except:
-                pass
-            try:
-                hgp, pgp, hsp, psp = load_playoff_data(2025, 'data')
-                if hgp is not None:
-                    seasons['2025_playoffs'] = {'hg': hgp, 'pg': pgp,
-                                                'hs': hsp, 'ps': psp,
-                                                'label': '🏆 2025 Postseason'}
-            except:
-                pass
-            try:
-                hg26, pg26, hs26, ps26 = load_season_data(2026, 'data')
-                seasons['2026'] = {'hg': hg26, 'pg': pg26,
-                                   'hs': hs26, 'ps': ps26,
-                                   'label': '🔴 2026 Current Season'}
-            except:
-                pass
+            for yr, label in [
+                (2023, '📅 2023 Regular Season'),
+                (2024, '📅 2024 Regular Season'),
+                (2025, '📅 2025 Regular Season'),
+                (2026, '🔴 2026 Current Season'),
+            ]:
+                try:
+                    hg, pg, hs, ps = load_season_data(yr, 'data')
+                    if hg is not None:
+                        seasons[str(yr)] = {'hg': hg, 'pg': pg,
+                                            'hs': hs, 'ps': ps,
+                                            'label': label}
+                except:
+                    pass
+            for yr, label in [
+                (2023, '🏆 2023 Postseason'),
+                (2024, '🏆 2024 Postseason'),
+                (2025, '🏆 2025 Postseason'),
+            ]:
+                try:
+                    hg, pg, hs, ps = load_playoff_data(yr, 'data')
+                    if hg is not None:
+                        seasons[f'{yr}_playoffs'] = {'hg': hg, 'pg': pg,
+                                                      'hs': hs, 'ps': ps,
+                                                      'label': label}
+                except:
+                    pass
             return seasons
-
         all_seasons = load_all_seasons()
 
         # Build player lists across all seasons
