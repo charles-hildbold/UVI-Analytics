@@ -141,6 +141,48 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 # v3.0 adds 2025 postseason data and player-first architecture.
 GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v3.0.0/"
 
+DATA_FILES_2023 = [
+    'master_hitter_games_2023.csv',
+    'master_pitcher_games_2023.csv',
+    'hitter_season_2023.csv',
+    'pitcher_season_2023.csv',
+    'hitter_game_stats_2023.csv',
+    'pitcher_game_stats_2023.csv',
+    'sprint_speed_2023.csv',
+    'outs_above_average_2023.csv',
+    'running_splits_2023.csv',
+]
+
+DATA_FILES_2023_PLAYOFFS = [
+    'master_hitter_games_2023_playoffs.csv',
+    'master_pitcher_games_2023_playoffs.csv',
+    'hitter_season_2023_playoffs.csv',
+    'pitcher_season_2023_playoffs.csv',
+    'hitter_game_stats_2023_playoffs.csv',
+    'pitcher_game_stats_2023_playoffs.csv',
+]
+
+DATA_FILES_2024 = [
+    'master_hitter_games_2024.csv',
+    'master_pitcher_games_2024.csv',
+    'hitter_season_2024.csv',
+    'pitcher_season_2024.csv',
+    'hitter_game_stats_2024.csv',
+    'pitcher_game_stats_2024.csv',
+    'sprint_speed_2024.csv',
+    'outs_above_average_2024.csv',
+    'running_splits_2024.csv',
+]
+
+DATA_FILES_2024_PLAYOFFS = [
+    'master_hitter_games_2024_playoffs.csv',
+    'master_pitcher_games_2024_playoffs.csv',
+    'hitter_season_2024_playoffs.csv',
+    'pitcher_season_2024_playoffs.csv',
+    'hitter_game_stats_2024_playoffs.csv',
+    'pitcher_game_stats_2024_playoffs.csv',
+]
+
 DATA_FILES_2025 = [
     'master_hitter_games_2025.csv',
     'master_pitcher_games_2025.csv',
@@ -170,7 +212,10 @@ DATA_FILES_2026 = [
     'pitcher_game_stats_2026.csv',
 ]
 
-DATA_FILES = DATA_FILES_2025 + DATA_FILES_2025_PLAYOFFS + DATA_FILES_2026
+DATA_FILES = (DATA_FILES_2023 + DATA_FILES_2023_PLAYOFFS +
+              DATA_FILES_2024 + DATA_FILES_2024_PLAYOFFS +
+              DATA_FILES_2025 + DATA_FILES_2025_PLAYOFFS +
+              DATA_FILES_2026)
 
 def _download_file(url: str, dest: Path) -> bool:
     """Download a file following redirects. Returns True on success."""
@@ -198,8 +243,10 @@ def ensure_data(data_dir: str = 'data') -> None:
     base = Path(data_dir)
     base.mkdir(parents=True, exist_ok=True)
 
-    # 2025 regular season — download once and cache
-    for fname in DATA_FILES_2025:
+    # Historical and current season files — download once and cache
+    for fname in (DATA_FILES_2023 + DATA_FILES_2023_PLAYOFFS +
+                  DATA_FILES_2024 + DATA_FILES_2024_PLAYOFFS +
+                  DATA_FILES_2025 + DATA_FILES_2025_PLAYOFFS):
         fpath = base / fname
         if not fpath.exists():
             url = GITHUB_RELEASE_URL + fname
@@ -208,22 +255,14 @@ def ensure_data(data_dir: str = 'data') -> None:
             if ok:
                 print(f'  ✓ {fname}')
             else:
-                raise RuntimeError(
-                    f"Could not download {fname} from GitHub Releases.\n"
-                    f"URL tried: {url}\n"
-                    f"Check that GitHub Release v3.0.0 exists and all "
-                    f"files are attached as assets."
-                )
-
-    # 2025 playoffs — download once and cache, skip if not available
-    for fname in DATA_FILES_2025_PLAYOFFS:
-        fpath = base / fname
-        if not fpath.exists():
-            url = GITHUB_RELEASE_URL + fname
-            ok = _download_file(url, fpath)
-            if not ok:
-                pass  # Playoff data is optional — app handles missing files gracefully
-
+                if '2025' in fname and 'playoff' not in fname.lower():
+                    raise RuntimeError(
+                        f"Could not download {fname} from GitHub Releases.\n"
+                        f"URL tried: {url}\n"
+                        f"Check that GitHub Release v3.0.0 exists and all "
+                        f"files are attached as assets."
+                    )
+                # Playoff and historical files are optional
     # 2026 files — always re-download so live data stays current
     for fname in DATA_FILES_2026:
         fpath = base / fname
@@ -276,9 +315,11 @@ def load_season_data(season: int = 2025, data_dir: str = 'data') -> tuple:
     hs_path = base / f'hitter_season_{yr}.csv'
     ps_path = base / f'pitcher_season_{yr}.csv'
 
-    # Fall back to 2025 if 2026 files not present
-    if season == 2026 and not hg_path.exists():
-        return load_season_data(2025, data_dir)
+    # Fall back to 2025 if requested season files not present
+    if not hg_path.exists():
+        if season == 2026:
+            return load_season_data(2025, data_dir)
+        return None, None, None, None
 
     hg = _parse_dates(pd.read_csv(hg_path))
     pg = _parse_dates(pd.read_csv(pg_path))
