@@ -139,7 +139,7 @@ def get_leaderboard(season_df: pd.DataFrame, role: str,
 
 # Data files hosted on GitHub Releases v3.0.0.
 # v3.0 adds 2025 postseason data and player-first architecture.
-GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v3.0.0/"
+GITHUB_RELEASE_URL = "https://github.com/charles-hildbold/UVI-Analytics/releases/download/v3.1.0/"
 
 DATA_FILES_2023 = [
     'master_hitter_games_2023.csv',
