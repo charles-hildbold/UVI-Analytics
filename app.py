@@ -217,10 +217,11 @@ GOLD = '#C9A84C'; RED = '#C0392B'; GRN = '#27AE60'; BLUE = '#2E86AB'
 # ── DATA ────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def get_season_data(season):
-    if season == '2025_playoffs':
-        hg, pg, hs, ps = load_playoff_data(2025, 'data')
+    if str(season).endswith('_playoffs'):
+        year_num = int(str(season).split('_')[0])
+        hg, pg, hs, ps = load_playoff_data(year_num, 'data')
         if hg is None:
-            return load_season_data(2025, 'data')
+            return load_season_data(year_num, 'data')
         return hg, pg, hs, ps
     return load_season_data(int(season), 'data')
 @st.cache_data(show_spinner=False)
