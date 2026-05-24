@@ -592,51 +592,7 @@ with st.sidebar:
             unsafe_allow_html=True)
     st.markdown('---')
 
-    # Tell the radio button to select index 1 (2026) if that is our session state
-    if st.session_state.selected_season == 2026:
-        default_idx = 2
-    elif st.session_state.selected_season == '2025_playoffs':
-        st.markdown(
-            '<div style="background:rgba(82,190,128,0.10);border:1px solid rgba(82,190,128,0.3);'
-            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#52BE80;">'
-            '🏆 <b>2025 Postseason</b><br>Wild Card · ALDS · ALCS · World Series</div>',
-            unsafe_allow_html=True)
-        default_idx = 1
-    else:
-        default_idx = 0
-    season_choice  = st.radio('Season', season_options, index=default_idx)
-
-    if '2026' in season_choice:
-        new_season = 2026
-    elif 'Postseason' in season_choice:
-        new_season = '2025_playoffs'
-    else:
-        new_season = 2025
-    if new_season != st.session_state.selected_season:
-        st.session_state.selected_season = new_season
-        st.cache_data.clear()
-        st.rerun()
-    # Current as of banner for 2026
-    if st.session_state.selected_season == 2026:
-        if last_updated:
-            st.markdown(
-                f'<div style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);'
-                f'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
-                f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
-                unsafe_allow_html=True)
-        else:
-            st.markdown(
-                '<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);'
-                'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
-                '🔴 <b>2026 Season</b><br>Data updating soon</div>',
-                unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
-            'border-radius:6px;padding:8px 12px;margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
-            '📅 <b>2025 Full Season</b><br>711,897 pitches · All 30 teams</div>',
-            unsafe_allow_html=True)
-    st.markdown('---')
+   
     if mode in ['📊 Player Audit', '🔮 Simulator', '🏠 Home'] and DATA_OK:
         role = st.radio('Role', ['Hitter', 'Pitcher'])
         teams_sorted = sorted(TEAM_NAMES.keys())
