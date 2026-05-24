@@ -236,8 +236,8 @@ if 'selected_season' not in st.session_state:
 try:
     hg, pg, hs, ps = get_season_data(st.session_state.selected_season)
     season_for_stats = st.session_state.selected_season
-    if season_for_stats == '2025_playoffs':
-        season_for_stats = 2025
+    if str(season_for_stats).endswith('_playoffs'):
+        season_for_stats = int(str(season_for_stats).split('_')[0])
     hgs, pgs = get_game_stats(int(season_for_stats))
     last_updated = get_last_updated('data')
     DATA_OK = True
