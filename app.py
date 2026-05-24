@@ -528,7 +528,68 @@ with st.sidebar:
     ])
     st.markdown('---')
     # Season toggle
-    season_options = ['📅 2025 — Full Season', '🏆 2025 — Postseason', '🔴 2026 — Current Season']
+    season_options = {
+        '🔴 2026 — Current Season':  2026,
+        '📅 2025 — Full Season':     2025,
+        '🏆 2025 — Postseason':      '2025_playoffs',
+        '📅 2024 — Full Season':     2024,
+        '🏆 2024 — Postseason':      '2024_playoffs',
+        '📅 2023 — Full Season':     2023,
+        '🏆 2023 — Postseason':      '2023_playoffs',
+    }
+
+    # Find the label matching current session state
+    current_label = next(
+        (k for k, v in season_options.items()
+         if v == st.session_state.selected_season),
+        '🔴 2026 — Current Season'
+    )
+
+    season_choice = st.selectbox(
+        'Season', list(season_options.keys()),
+        index=list(season_options.keys()).index(current_label),
+        key='season_select'
+    )
+    new_season = season_options[season_choice]
+    if new_season != st.session_state.selected_season:
+        st.session_state.selected_season = new_season
+        st.cache_data.clear()
+        st.rerun()
+
+    if st.session_state.selected_season == 2026:
+        if last_updated:
+            st.markdown(
+                f'<div style="background:rgba(201,168,76,0.12);border:1px solid '
+                f'rgba(201,168,76,0.3);border-radius:6px;padding:8px 12px;'
+                f'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                f'🔴 <b>Live Season</b><br>Current as of {last_updated}</div>',
+                unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div style="background:rgba(201,168,76,0.08);border:1px solid '
+                'rgba(201,168,76,0.2);border-radius:6px;padding:8px 12px;'
+                'margin-top:4px;font-size:0.78rem;color:#C9A84C;">'
+                '🔴 <b>2026 Season</b><br>Data updating soon</div>',
+                unsafe_allow_html=True)
+    elif str(st.session_state.selected_season).endswith('_playoffs'):
+        year_num = str(st.session_state.selected_season).split('_')[0]
+        st.markdown(
+            f'<div style="background:rgba(82,190,128,0.10);border:1px solid '
+            f'rgba(82,190,128,0.3);border-radius:6px;padding:8px 12px;'
+            f'margin-top:4px;font-size:0.78rem;color:#52BE80;">'
+            f'🏆 <b>{year_num} Postseason</b><br>'
+            f'Wild Card · Division Series · LCS · World Series</div>',
+            unsafe_allow_html=True)
+    else:
+        yr = st.session_state.selected_season
+        pitches = '711,897' if yr == 2025 else 'Full season'
+        st.markdown(
+            f'<div style="background:rgba(255,255,255,0.04);border:1px solid '
+            f'rgba(255,255,255,0.08);border-radius:6px;padding:8px 12px;'
+            f'margin-top:4px;font-size:0.78rem;color:#6B7A8D;">'
+            f'📅 <b>{yr} Full Season</b><br>{pitches} · All 30 teams</div>',
+            unsafe_allow_html=True)
+    st.markdown('---')
 
     # Tell the radio button to select index 1 (2026) if that is our session state
     if st.session_state.selected_season == 2026:
