@@ -1,11 +1,21 @@
 # UVI — Unified Value Index
-### Pitch-by-Pitch MLB Performance Analytics · v3.0.0
+### Pitch-by-Pitch MLB Performance Analytics · v3.1.0
 
 UVI measures every MLB player on a pitch-by-pitch basis, normalized across all 30 stadiums and positions. Every pitch thrown or seen contributes to a player's score, weighted by two simultaneous leverage factors: count context and win probability impact. The result is a park-neutralized performance score where 100 equals league average and each 50 points represents one standard deviation.
 
 **Live app:** uvi-analytics.streamlit.app
 **Methodology:** charleshildbold.com/portfolio
 **Built by:** Charles "Charlie" Hildbold — M.S. Data Analytics
+
+---
+
+## What's New in v3.1.0
+
+- **Full historical archive** — 2023 and 2024 regular season and postseason data added, all calculated using 2025 frozen constants for direct cross-year comparison
+- **Season dropdown** — replaced sidebar radio buttons with a dropdown supporting all 7 season options: 2023, 2023 Postseason, 2024, 2024 Postseason, 2025, 2025 Postseason, 2026 Current
+- **Player Profile page** — year-over-year career view showing season cards, UVI bar chart, and combined career game log across all available seasons
+- **2026 box scores** — game detail panel now shows box score stats for 2026 games, updated daily alongside pitch data
+- **Daily name resolution** — rookie call-ups now resolve correctly via MLB Stats API with local JSON cache, eliminating Unknown player entries
 
 ---
 
@@ -24,8 +34,12 @@ UVI measures every MLB player on a pitch-by-pitch basis, normalized across all 3
 
 | Season | Description | Pitches |
 |--------|-------------|---------|
+| 2023 Regular Season | Full season, all 30 teams | ~700,000 |
+| 2023 Postseason | Wild Card through World Series | included |
+| 2024 Regular Season | Full season, all 30 teams | ~700,000 |
+| 2024 Postseason | Wild Card through World Series | included |
 | 2025 Regular Season | Full season, all 30 teams | 711,897 |
-| 2025 Postseason | Wild Card through World Series | TBD |
+| 2025 Postseason | Wild Card through World Series | included |
 | 2026 Current Season | Live, updated daily | Growing |
 
 ---
@@ -33,21 +47,66 @@ UVI measures every MLB player on a pitch-by-pitch basis, normalized across all 3
 ## What's in This Repo
 
 ```
-app.py                    — Streamlit application (display only)
-uvi_engine.py             — Core calculation engine (all math lives here)
-update_2026_daily.py      — Daily update script for 2026 live data
-pull_2026_components.py   — Sprint speed, OAA, running splits
-pull_2025_playoffs.py     — One-time 2025 postseason data pull
-daily_update.bat          — Windows batch file for daily updates
-pull_playoffs.bat         — Windows batch file for playoff data pull
-rebuild_season_totals.py  — Player-id grouping fix (run once)
+app.py                         — Streamlit application (display only)
+uvi_engine.py                  — Core calculation engine (all math lives here)
+update_2026_daily.py           — Daily update script for 2026 live data
+pull_2026_components.py        — Sprint speed, OAA, running splits
+pull_2025_playoffs.py          — One-time 2025 postseason data pull
+pull_historical.py             — One-time 2023 and 2024 season data pull
+pull_historical_playoffs.py    — One-time 2023 and 2024 postseason data pull
+pull_2026_boxscores.py         — One-time 2026 box score pull
+daily_update.bat               — Windows batch file for daily updates
+pull_playoffs.bat              — Windows batch file for playoff data pull
+pull_historical.bat            — Windows batch file for historical data pull
+pull_historical_playoffs.bat   — Windows batch file for historical playoffs
+rebuild_season_totals.py       — Player-id grouping fix (run once)
+fix_unknown.py                 — Patches Unknown player names via MLB Stats API
+backfill.py                    — Fills gaps when daily update is missed
 ```
 
 ---
 
 ## Data Architecture
 
-All CSV data files are hosted on GitHub Releases v3.0.0 and downloaded automatically on first load. The app uses `requests` with redirect following to handle GitHub's S3 asset delivery.
+All CSV data files are hosted on GitHub Releases v3.1.0 and downloaded automatically on first load. The app uses `requests` with redirect following to handle GitHub's S3 asset delivery.
+
+**2023 Regular Season (cached after first download):**
+- master_hitter_games_2023.csv
+- master_pitcher_games_2023.csv
+- hitter_season_2023.csv
+- pitcher_season_2023.csv
+- hitter_game_stats_2023.csv
+- pitcher_game_stats_2023.csv
+- sprint_speed_2023.csv
+- outs_above_average_2023.csv
+- running_splits_2023.csv
+
+**2023 Postseason (cached after first download):**
+- master_hitter_games_2023_playoffs.csv
+- master_pitcher_games_2023_playoffs.csv
+- hitter_season_2023_playoffs.csv
+- pitcher_season_2023_playoffs.csv
+- hitter_game_stats_2023_playoffs.csv
+- pitcher_game_stats_2023_playoffs.csv
+
+**2024 Regular Season (cached after first download):**
+- master_hitter_games_2024.csv
+- master_pitcher_games_2024.csv
+- hitter_season_2024.csv
+- pitcher_season_2024.csv
+- hitter_game_stats_2024.csv
+- pitcher_game_stats_2024.csv
+- sprint_speed_2024.csv
+- outs_above_average_2024.csv
+- running_splits_2024.csv
+
+**2024 Postseason (cached after first download):**
+- master_hitter_games_2024_playoffs.csv
+- master_pitcher_games_2024_playoffs.csv
+- hitter_season_2024_playoffs.csv
+- pitcher_season_2024_playoffs.csv
+- hitter_game_stats_2024_playoffs.csv
+- pitcher_game_stats_2024_playoffs.csv
 
 **2025 Regular Season (cached after first download):**
 - master_hitter_games_2025.csv
@@ -68,7 +127,10 @@ All CSV data files are hosted on GitHub Releases v3.0.0 and downloaded automatic
 - master_pitcher_games_2026.csv
 - hitter_season_2026.csv
 - pitcher_season_2026.csv
+- hitter_game_stats_2026.csv
+- pitcher_game_stats_2026.csv
 - last_updated.txt
+- player_names.json
 - outs_above_average_2026.csv
 - running_splits_2026.csv
 - sprint_speed_2026.csv
@@ -129,7 +191,7 @@ Baseline = 100 · Each 50 points = 1 standard deviation · All scores park-neutr
 
 ## Frozen Constants
 
-Derived from the complete 2025 MLB season. Never change between runs.
+Derived from the complete 2025 MLB season. Applied to all seasons for direct cross-year comparison. Never change between runs.
 
 | Constant | Value |
 |----------|-------|
@@ -147,19 +209,25 @@ Derived from the complete 2025 MLB season. Never change between runs.
 Each morning during the 2026 season:
 
 1. Double-click `daily_update.bat`
-2. Upload 5 changed files to GitHub Release v3.0.0:
+2. Upload 11 changed files to GitHub Release v3.1.0:
    - master_hitter_games_2026.csv
    - master_pitcher_games_2026.csv
    - hitter_season_2026.csv
    - pitcher_season_2026.csv
+   - hitter_game_stats_2026.csv
+   - pitcher_game_stats_2026.csv
    - last_updated.txt
+   - player_names.json
+   - outs_above_average_2026.csv
+   - running_splits_2026.csv
+   - sprint_speed_2026.csv
 3. Reboot Streamlit Cloud
 
 ---
 
 ## Tech Stack
 
-Python · Streamlit · Plotly · Pandas · NumPy · pybaseball · Statcast API · GitHub Releases · Streamlit Cloud
+Python · Streamlit · Plotly · Pandas · NumPy · pybaseball · Statcast API · MLB Stats API · GitHub Releases · Streamlit Cloud
 
 ---
 
@@ -172,3 +240,4 @@ Python · Streamlit · Plotly · Pandas · NumPy · pybaseball · Statcast API �
 | v2.1.0 | Component bonuses, leaderboard, simulator |
 | v2.2.0 | 2026 live season, daily updates, season toggle |
 | v3.0.0 | Player-first architecture, 2025 postseason, home page, pitcher role classification |
+| v3.1.0 | Full historical archive 2023–2026, season dropdown, player profile year-over-year, 2026 box scores |
