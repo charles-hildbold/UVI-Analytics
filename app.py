@@ -520,11 +520,12 @@ with st.sidebar:
         st.markdown('<div class="wordmark-sub">Unified Value Index</div>', unsafe_allow_html=True)
         st.markdown('<div class="wordmark-sub">MLB Performance Audit Engine</div>', unsafe_allow_html=True)
     st.markdown('---')
-    mode = st.radio('Navigation', [
+	mode = st.radio('Navigation', [
         '🏠 Home',
         '📊 Player Audit',
         '👤 Player Profile',
         '🏆 Leaderboard',
+        '🤖 Ask UVI',
         '📖 Methodology',
     ])
     st.markdown('---')
@@ -1324,6 +1325,204 @@ elif mode == '🔮 Simulator':
         title=dict(text='Adjustment Breakdown', font=dict(size=13,family='Barlow Condensed'), x=0))
     st.plotly_chart(fig, use_container_width=True)
     st.info(f'**Scout Note:** {player} projected at **{pred_uvi:.1f} UVI** in {target_park} under these conditions — a **{delta:+.1f}** shift from their {season_yr} season average.')
+
+# ────────────────────────────────────────────────────────────────────────────
+# PAGE: ASK UVI
+# ────────────────────────────────────────────────────────────────────────────
+elif mode == '🤖 Ask UVI':
+    st.markdown('## 🤖 Ask UVI')
+    st.markdown('Ask any question about player performance in plain English. '
+                'Answers are generated using real UVI data, not generic baseball knowledge.')
+    st.markdown('---')
+
+    if DATA_OK:
+        import google.generativeai as genai
+
+        try:
+            api_key = st.secrets['GEMINI_API_KEY']
+            genai.configure(api_key=api_key)
+        except Exception:
+            st.error('Gemini API key not configured. Add GEMINI_API_KEY to Streamlit secrets.')
+            st.stop()
+
+        # Build context from current season data
+        @st.cache_data(show_spinner=False)
+        def build_uvi_context():
+            season_yr = st.session_state.get('selected_season', 2026)
+            score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
+            score_p = 'season_uvi'
+
+            # Top 50 hitters
+            top_h = hs.nlargest(50, score_h)[
+                ['player_name','team_tag',score_h,'games','total_pitches']
+            ].copy()
+            top_h.columns = ['Player','Team','UVI','Games','Pitches']
+            top_h['UVI'] = top_h['UVI'].round(1)
+            h_text = top_h.to_string(index=False)
+
+            # Top 50 pitchers
+            ps_copy = ps.copy()
+            ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0,1)
+            top_sp = ps_copy[ps_copy['avg_ppg'] >= 45].nlargest(25, score_p)[
+                ['player_name','team_tag',score_p,'games','total_pitches']
+            ].copy()
+            top_sp.columns = ['Player','Team','UVI','Games','Pitches']
+            top_sp['UVI'] = top_sp['UVI'].round(1)
+            sp_text = top_sp.to_string(index=False)
+
+            top_rp = ps_copy[ps_copy['avg_ppg'] < 45].nlargest(25, score_p)[
+                ['player_name','team_tag',score_p,'games','total_pitches']
+            ].copy()
+            top_rp.columns = ['Player','Team','UVI','Games','Pitches']
+            top_rp['UVI'] = top_rp['UVI'].round(1)
+            rp_text = top_rp.to_string(index=False)
+
+            return h_text, sp_text, rp_text, season_yr
+
+        h_context, sp_context, rp_context, ctx_season = build_uvi_context()
+
+        system_prompt = f"""You are the UVI (Unified Value Index) analytics assistant.
+You answer questions about MLB player performance using real UVI data.
+
+UVI measures every pitch a player throws or sees, weighted by:
+- Count leverage (3-2 count = 1.6x, 0-0 = 1.0x, 3-0 = 0.9x)
+- Win probability leverage (tie game late = high weight, blowout = low weight)
+Score of 100 = league average. Each 50 points = 1 standard deviation.
+
+Score tiers:
+160+ = Impact Player
+130-159 = Proven Starter
+115-129 = Solid Contributor
+90-114 = Roster Average
+70-89 = Fringe Roster
+Below 70 = DFA Candidate
+
+Currently showing {ctx_season} season data.
+
+TOP 50 HITTERS:
+{h_context}
+
+TOP 25 STARTING PITCHERS:
+{sp_context}
+
+TOP 25 RELIEF PITCHERS:
+{rp_context}
+
+Rules:
+- Only use the data provided above. Do not make up statistics.
+- If a player is not in the data, say so honestly.
+- Keep answers concise and analytical.
+- Reference specific UVI scores and game counts when relevant.
+- When comparing players, use the actual numbers from the data.
+- If asked about something UVI doesn't measure, explain what UVI does measure and answer as best you can."""
+
+        # Initialize chat history
+        if 'ask_uvi_history' not in st.session_state:
+            st.session_state.ask_uvi_history = []
+
+        # Display chat history
+        for msg in st.session_state.ask_uvi_history:
+            if msg['role'] == 'user':
+                st.markdown(f"""
+                <div style="background:#1A2333;border:1px solid rgba(201,168,76,0.15);
+                    border-radius:10px;padding:12px 16px;margin:8px 0">
+                    <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">YOU</div>
+                    <div style="color:#E8E8E8">{msg['content']}</div>
+                </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background:#131A24;border:1px solid rgba(201,168,76,0.15);
+                    border-left:3px solid #C9A84C;border-radius:10px;
+                    padding:12px 16px;margin:8px 0">
+                    <div style="font-size:0.7rem;color:#C9A84C;margin-bottom:4px">UVI</div>
+                    <div style="color:#E8E8E8">{msg['content']}</div>
+                </div>""", unsafe_allow_html=True)
+
+        # Input
+        user_question = st.text_input('Ask a question about any player or team...',
+                                       key='ask_uvi_input',
+                                       placeholder='e.g. Who are the top 5 hitters right now?')
+
+        if user_question:
+            # Check if player is mentioned and add their game log if available
+            extra_context = ""
+            for _, row in hs.iterrows():
+                if row['player_name'].lower() in user_question.lower():
+                    player_games = hg[hg['player_name'] == row['player_name']].copy()
+                    if not player_games.empty:
+                        player_games['game_uvi'] = compute_game_uvi_col(
+                            player_games, 'hitter')
+                        recent = player_games.sort_values('game_date').tail(10)
+                        recent_str = recent[['game_date','team_tag',
+                                              'game_uvi','pitch_count']].to_string(index=False)
+                        season_uvi = compute_span_uvi(player_games, 'hitter')
+                        last7 = player_games.tail(7)
+                        last7_uvi = compute_span_uvi(last7, 'hitter') if len(last7) >= 2 else season_uvi
+                        extra_context = (
+                            f"\n\nDETAILED DATA FOR {row['player_name'].upper()}:\n"
+                            f"Season UVI: {season_uvi:.1f}\n"
+                            f"Last 7 games UVI: {last7_uvi:.1f}\n"
+                            f"Trend: {'↑ trending up' if last7_uvi > season_uvi else '↓ trending down'}\n"
+                            f"Recent game log:\n{recent_str}"
+                        )
+                    break
+            if not extra_context:
+                for _, row in ps.iterrows():
+                    if row['player_name'].lower() in user_question.lower():
+                        player_games = pg[pg['player_name'] == row['player_name']].copy()
+                        if not player_games.empty:
+                            player_games['game_uvi'] = compute_game_uvi_col(
+                                player_games, 'pitcher')
+                            recent = player_games.sort_values('game_date').tail(10)
+                            recent_str = recent[['game_date','team_tag',
+                                                  'game_uvi','pitch_count']].to_string(index=False)
+                            season_uvi = compute_span_uvi(player_games, 'pitcher')
+                            extra_context = (
+                                f"\n\nDETAILED DATA FOR {row['player_name'].upper()}:\n"
+                                f"Season UVI: {season_uvi:.1f}\n"
+                                f"Recent game log:\n{recent_str}"
+                            )
+                        break
+
+            st.session_state.ask_uvi_history.append(
+                {'role': 'user', 'content': user_question})
+
+            with st.spinner('Analyzing...'):
+                try:
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    full_prompt = system_prompt + extra_context + \
+                                  f"\n\nUser question: {user_question}"
+                    response = model.generate_content(full_prompt)
+                    answer = response.text
+
+                    st.session_state.ask_uvi_history.append(
+                        {'role': 'assistant', 'content': answer})
+                    st.rerun()
+                except Exception as e:
+                    st.error(f'Error generating response: {str(e)}')
+
+        # Clear chat button
+        if st.session_state.ask_uvi_history:
+            if st.button('Clear conversation'):
+                st.session_state.ask_uvi_history = []
+                st.rerun()
+
+        # Example questions
+        if not st.session_state.ask_uvi_history:
+            st.markdown('---')
+            st.markdown('### Try asking:')
+            examples = [
+                'Who are the top 5 hitters in 2026?',
+                'How is Paul Skenes doing this season?',
+                'Which team has the best overall hitting?',
+                'Who are the most improved players recently?',
+                'Compare the top starting pitchers right now.',
+            ]
+            for ex in examples:
+                st.caption(f'💬 "{ex}"')
+    else:
+        st.error('Data not available.')
+
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
 # ────────────────────────────────────────────────────────────────────────────
