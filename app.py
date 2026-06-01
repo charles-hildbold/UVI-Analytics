@@ -1350,78 +1350,65 @@ elif mode == '🤖 Ask UVI':
             st.error('Gemini API key not configured. Add GEMINI_API_KEY to Streamlit secrets.')
             st.stop()
 
-        # Securely build all_players for the active season view to prevent any NameErrors
         active_players = sorted(hs['player_name'].dropna().unique().tolist() + 
                                 ps['player_name'].dropna().unique().tolist())
 
-        # Build a structured data layout for the AI
+        # Build a true multi-season knowledge graph for global queries
         @st.cache_data(show_spinner=False)
-        def build_uvi_context(selected_season_str):
-            score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
-            score_p = 'season_uvi'
-
-            # 1. Quick Snapshot of the Current Active Season Leaderboard (Top 15)
-            top_h_snap = hs.nlargest(15, score_h)[['player_name','team_tag',score_h,'games']].copy()
-            top_h_snap.columns = ['Player','Team','UVI','Games']
+        def build_multi_season_context():
+            historical_summary = ""
             
-            ps_copy = ps.copy()
-            ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0,1)
-            top_p_snap = ps_copy[ps_copy['avg_ppg'] >= 45].nlargest(15, score_p)[['player_name','team_tag',score_p,'games']].copy()
-            top_p_snap.columns = ['Player','Team','UVI','Games']
+            for yr in [2023, 2024, 2025, 2026]:
+                try:
+                    _, _, h_season_yr, p_season_yr = load_season_data(yr, 'data')
+                    score_h = 'complete_uvi' if 'complete_uvi' in h_season_yr.columns else 'batting_uvi'
+                    score_p = 'season_uvi'
 
-            # 2. Top 15 Individual Game Performances (Calculate columns on the fly to prevent KeyError)
-            thresh_h = MIN_PITCH_HITTER_FULL
-            thresh_p = MIN_PITCH_PITCHER
-            
-            hg_ctx = hg[hg['pitch_count'] >= thresh_h].copy()
-            if not hg_ctx.empty:
-                hg_ctx['game_uvi'] = compute_game_uvi_col(hg_ctx, 'hitter')
-                top_games_h = hg_ctx.nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
-                top_games_h['game_date'] = pd.to_datetime(top_games_h['game_date']).dt.strftime('%b %d')
-                game_h_text = top_games_h.to_string(index=False)
-            else:
-                game_h_text = "No reliable hitter games found."
+                    # Filter out small-sample noise using full starter qualifiers
+                    min_pitches_h = 150 if yr == 2025 else 40
+                    min_pitches_p = 150 if yr == 2025 else 40
 
-            pg_ctx = pg[pg['pitch_count'] >= thresh_p].copy()
-            if not pg_ctx.empty:
-                pg_ctx['game_uvi'] = compute_game_uvi_col(pg_ctx, 'pitcher')
-                top_games_p = pg_ctx.nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
-                top_games_p['game_date'] = pd.to_datetime(top_games_p['game_date']).dt.strftime('%b %d')
-                game_p_text = top_games_p.to_string(index=False)
-            else:
-                game_p_text = "No reliable pitcher games found."
+                    qualified_h = h_season_yr[h_season_yr['total_pitches'] >= min_pitches_h]
+                    qualified_p = p_season_yr[p_season_yr['total_pitches'] >= min_pitches_p]
 
-            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), game_h_text, game_p_text
+                    historical_summary += f"\n==== {yr} SEASON HISTORICAL SUMMARY ====\n"
+                    
+                    if not qualified_h.empty:
+                        historical_summary += f"Top 5 Qualified Hitters ({yr}):\n"
+                        historical_summary += qualified_h.nlargest(5, score_h)[['player_name', 'team_tag', score_h, 'games']].to_string(index=False) + "\n"
+                    
+                    if not qualified_p.empty:
+                        # Separate starting pitchers from relievers if possible
+                        if 'total_pitches' in qualified_p.columns and 'games' in qualified_p.columns:
+                            qualified_p = qualified_p.copy()
+                            qualified_p['avg_ppg'] = qualified_p['total_pitches'] / qualified_p['games'].replace(0,1)
+                            starters = qualified_p[qualified_p['avg_ppg'] >= 45]
+                            if not starters.empty:
+                                historical_summary += f"Top 5 Qualified Starting Pitchers ({yr}):\n"
+                                historical_summary += starters.nlargest(5, score_p)[['player_name', 'team_tag', score_p, 'games']].to_string(index=False) + "\n"
+                            else:
+                                historical_summary += f"Top 5 Qualified Pitchers ({yr}):\n"
+                                historical_summary += qualified_p.nlargest(5, score_p)[['player_name', 'team_tag', score_p, 'games']].to_string(index=False) + "\n"
+                except Exception:
+                    pass
+            return historical_summary
 
-        h_snap, p_snap, game_h_ctx, game_p_ctx = build_uvi_context(str(st.session_state.selected_season))
+        global_historical_context = build_multi_season_context()
 
-        system_prompt = f"""You are the advanced UVI (Unified Value Index) Analytics Engine. 
-You possess full access to the underlying historical and current data structures of the UVI app.
-
-DATABASE ARCHITECTURE:
-- `master_hitter_games_[YEAR].csv` & `master_pitcher_games_[YEAR].csv`: Individual game logs containing 'game_date', 'player_name', 'team_tag', 'game_uvi', and 'pitch_count'.
-- `hitter_season_[YEAR].csv` & `pitcher_season_[YEAR].csv`: Seasonal summary files with overall cumulative metrics.
+        system_prompt = f"""You are the advanced UVI (Unified Value Index) Analytics Engine.
+You possess direct access to multi-year leaderboard summaries and data structures.
 
 UVI Baseline = 100 (league average). Above 100 is value added; below 100 is value leaked. Each 50 points = 1 standard deviation.
-CURRENT SELECTED VIEW: {st.session_state.selected_season}
+CURRENT SIDEBAR VIEW SELECTION: {st.session_state.selected_season}
 
-CURRENT LEADERBOARD SNAPSHOT (TOP 15 HITTERS):
-{h_snap}
-
-CURRENT LEADERBOARD SNAPSHOT (TOP 15 STARTERS):
-{p_snap}
-
-TOP 15 SINGLE-GAME PERFORMANCES (HITTERS):
-{game_h_ctx}
-
-TOP 15 SINGLE-GAME PERFORMANCES (PITCHERS):
-{game_p_ctx}
+GLOBAL HISTORICAL LEADERBOARDS (QUALIFIED PLAYERS):
+{global_historical_context}
 
 CRITICAL EXECUTION RULES:
-1. LEADERBOARDS & RANKINGS: Use the exact tables above to answer top rankings or "best game" questions.
-2. MULTI-YEAR CAREER COMPARISONS: If asked to evaluate a player across different years, heavily analyze the parsed 'HISTORICAL CAREER LOGS' supplied below. Look at their value changes, volume differences, and performance stability year-over-year.
-3. TEAM ANALYSIS: If asked about team trends, examine the context to find who is performing optimally.
-4. Maintain a professional, data-focused tone. State findings clearly and back them up using numbers from the dataset. Do not invent statistics."""
+1. SAMPLE SIZE FILTERING: When asked for the top players of a season or team generally, prioritize players with a meaningful sample size (more than 1 or 2 games) from the tables. If someone dominates with 1 game, you may note them as an outlier, but provide the top qualified regulars.
+2. GLOBAL QUESTIONS: If asked a question about past seasons (e.g., "who had the highest UVI in 2025?"), use the GLOBAL HISTORICAL LEADERBOARDS text block above to answer instantly.
+3. DETAILED LOG SYNTHESIS: Match user queries against any injected detailed logs below to evaluate pitch-by-pitch consistency or rolling trends.
+4. Keep answers clean, data-grounded, and professional. Do not invent statistics."""
 
         # Initialize chat history
         if 'ask_uvi_history' not in st.session_state:
@@ -1442,27 +1429,24 @@ CRITICAL EXECUTION RULES:
                     <div style="color:#E8E8E8">{msg['content']}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # Callback function to prevent state-refresh looping
         def handle_user_submission():
             query_text = st.session_state.widget_question
             if query_text:
                 st.session_state.current_question = query_text
                 st.session_state.ask_uvi_history.append({'role': 'user', 'content': query_text})
-                st.session_state.widget_question = ""  # Erase field instantly
+                st.session_state.widget_question = ""
 
-        st.text_input('Ask a question about any player or team...', key='widget_question', on_change=handle_user_submission, placeholder='e.g. Compare Aaron Judge\'s performance across seasons')
+        st.text_input('Ask a question about any player or team...', key='widget_question', on_change=handle_user_submission, placeholder='e.g. Who had the highest UVI in 2025?')
 
-        # Run query execution precisely once per submission event
         if 'current_question' in st.session_state and st.session_state.current_question:
             q = st.session_state.current_question
-            st.session_state.current_question = None  # Reset tracking state
+            st.session_state.current_question = None
 
             extra_context = ""
             player_found = False
             detected_player = ""
             detected_role = ""
 
-            # Check if an active player name matches the user's string input
             for p_name in active_players:
                 if p_name.lower() in q.lower():
                     detected_player = p_name
@@ -1470,15 +1454,12 @@ CRITICAL EXECUTION RULES:
                     player_found = True
                     break
 
-            # Career Lookup Loop: Pull records dynamically for every supported year file
+            # Player Profile Deep-Dive Slicer
             if player_found:
                 extra_context += f"\n\n==== HISTORICAL CAREER LOGS FOR {detected_player.upper()} ====\n"
-                
-                # Check regular seasons mapped within your configuration
                 for yr in [2023, 2024, 2025, 2026]:
                     try:
                         h_games_yr, p_games_yr, h_season_yr, p_season_yr = load_season_data(yr, 'data')
-                        
                         if detected_role == 'hitter':
                             s_row = h_season_yr[h_season_yr['player_name'] == detected_player]
                             g_logs = h_games_yr[h_games_yr['player_name'] == detected_player].copy()
@@ -1491,7 +1472,6 @@ CRITICAL EXECUTION RULES:
                         if not s_row.empty:
                             extra_context += f"\n--- {yr} Regular Season Summary ---\n"
                             extra_context += f"Season UVI: {s_row.iloc[0].get(score_col, 100):.1f} · Games: {int(s_row.iloc[0].get('games', 0))} · Pitches: {int(s_row.iloc[0].get('total_pitches', 0))}\n"
-                            
                             if not g_logs.empty:
                                 g_logs['game_uvi'] = compute_game_uvi_col(g_logs, detected_role)
                                 sorted_games = g_logs.sort_values('game_date').tail(5)
@@ -1500,21 +1480,28 @@ CRITICAL EXECUTION RULES:
                     except Exception:
                         pass
 
-            # Team Lookup Loop: Provide snapshot datasets if team terminology is detected
+            # Team-wide Deep-Dive Slicer
             else:
                 for team_code in TEAM_NAMES.keys():
                     if TEAM_NAMES[team_code].lower() in q.lower() or team_code.lower() in q.lower():
+                        # Evaluate across the active selected year view, but fetch noise-filtered targets
                         score_col = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
-                        team_hitters = hs[hs['team_tag'] == team_code].nlargest(10, score_col)
-                        team_pitchers = ps[ps['team_tag'] == team_code].nlargest(10, 'season_uvi')
-                        extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT:\n"
-                        extra_context += f"Top Hitters:\n{team_hitters[['player_name', score_col, 'games']].to_string(index=False)}\n"
-                        extra_context += f"Top Pitchers:\n{team_pitchers[['player_name', 'season_uvi', 'games']].to_string(index=False)}"
+                        
+                        # Grab standard qualifiers (15+ pitches for pitchers, 15+ pitches seen for hitters) to avoid single game noise
+                        team_hitters_all = hs[hs['team_tag'] == team_code]
+                        team_pitchers_all = ps[ps['team_tag'] == team_code]
+                        
+                        # Standard list
+                        team_hitters_qual = team_hitters_all[team_hitters_all['total_pitches'] >= 25].nlargest(10, score_col)
+                        team_pitchers_qual = team_pitchers_all[team_pitchers_all['total_pitches'] >= 50].nlargest(10, 'season_uvi')
+
+                        extra_context += f"\n\nCURRENT QUALIFIED {team_code} TEAM SNAPSHOT (Selected Season View):\n"
+                        extra_context += f"Top Regular Hitters (25+ Pitches Seen):\n{team_hitters_qual[['player_name', score_col, 'games', 'total_pitches']].to_string(index=False)}\n\n"
+                        extra_context += f"Top Regular Pitchers (50+ Pitches Thrown):\n{team_pitchers_qual[['player_name', 'season_uvi', 'games', 'total_pitches']].to_string(index=False)}\n"
                         break
 
             with st.spinner('Analyzing UVI Engine Data...'):
                 try:
-                    # Dynamically catch your active Gemini model version framework
                     valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     flash_model = next((m for m in valid_models if 'flash' in m), 'gemini-2.5-flash')
                     
