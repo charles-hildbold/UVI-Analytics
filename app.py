@@ -1494,7 +1494,11 @@ Rules:
 
             with st.spinner('Analyzing...'):
                 try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # Auto-detect the newest available Flash model for your API key
+                    valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    flash_model = next((m for m in valid_models if 'flash' in m), 'gemini-2.5-flash')
+                    
+                    model = genai.GenerativeModel(flash_model)
                     full_prompt = system_prompt + extra_context + \
                                   f"\n\nUser question: {user_question}"
                     response = model.generate_content(full_prompt)
