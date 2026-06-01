@@ -521,12 +521,12 @@ with st.sidebar:
         st.markdown('<div class="wordmark-sub">MLB Performance Audit Engine</div>', unsafe_allow_html=True)
     st.markdown('---')
 	mode = st.radio('Navigation', [
-        '🏠 Home',
-        '📊 Player Audit',
-        '👤 Player Profile',
-        '🏆 Leaderboard',
-        '🤖 Ask UVI',
-        '📖 Methodology',
+        	'🏠 Home',
+        	'📊 Player Audit',
+        	'👤 Player Profile',
+        	'🏆 Leaderboard',
+        	'🤖 Ask UVI',
+        	'📖 Methodology',
     ])
     st.markdown('---')
     # Season toggle
