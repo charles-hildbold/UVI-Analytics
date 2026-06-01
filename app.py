@@ -1366,17 +1366,30 @@ elif mode == '🤖 Ask UVI':
             top_p_snap = ps_copy[ps_copy['avg_ppg'] >= 45].nlargest(15, score_p)[['player_name','team_tag',score_p,'games']].copy()
             top_p_snap.columns = ['Player','Team','UVI','Games']
 
-            # 2. Top 15 Individual Game Performances for Game-Level context
+            # 2. Top 15 Individual Game Performances (Calculate columns on the fly to prevent KeyError)
             thresh_h = MIN_PITCH_HITTER_FULL
             thresh_p = MIN_PITCH_PITCHER
             
-            top_games_h = hg[hg['pitch_count'] >= thresh_h].nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
-            top_games_h['game_date'] = pd.to_datetime(top_games_h['game_date']).dt.strftime('%b %d')
-            
-            top_games_p = pg[pg['pitch_count'] >= thresh_p].nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
-            top_games_p['game_date'] = pd.to_datetime(top_games_p['game_date']).dt.strftime('%b %d')
+            # Create shallow copies and calculate game_uvi globally for the context step
+            hg_ctx = hg[hg['pitch_count'] >= thresh_h].copy()
+            if not hg_ctx.empty:
+                hg_ctx['game_uvi'] = compute_game_uvi_col(hg_ctx, 'hitter')
+                top_games_h = hg_ctx.nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
+                top_games_h['game_date'] = pd.to_datetime(top_games_h['game_date']).dt.strftime('%b %d')
+                game_h_text = top_games_h.to_string(index=False)
+            else:
+                game_h_text = "No reliable hitter games found."
 
-            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), top_games_h.to_string(index=False), top_games_p.to_string(index=False), season_yr
+            pg_ctx = pg[pg['pitch_count'] >= thresh_p].copy()
+            if not pg_ctx.empty:
+                pg_ctx['game_uvi'] = compute_game_uvi_col(pg_ctx, 'pitcher')
+                top_games_p = pg_ctx.nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
+                top_games_p['game_date'] = pd.to_datetime(top_games_p['game_date']).dt.strftime('%b %d')
+                game_p_text = top_games_p.to_string(index=False)
+            else:
+                game_p_text = "No reliable pitcher games found."
+
+            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), game_h_text, game_p_text, season_yr
 
         h_snap, p_snap, game_h_ctx, game_p_ctx, ctx_season = build_uvi_context()
 
