@@ -1350,76 +1350,65 @@ elif mode == '🤖 Ask UVI':
             st.error('Gemini API key not configured. Add GEMINI_API_KEY to Streamlit secrets.')
             st.stop()
 
-        # Build context from current season data
+        # Build a structured data layout for the AI
         @st.cache_data(show_spinner=False)
         def build_uvi_context():
             season_yr = st.session_state.get('selected_season', 2026)
             score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
             score_p = 'season_uvi'
 
-            # Top 50 hitters
-            top_h = hs.nlargest(50, score_h)[
-                ['player_name','team_tag',score_h,'games','total_pitches']
-            ].copy()
-            top_h.columns = ['Player','Team','UVI','Games','Pitches']
-            top_h['UVI'] = top_h['UVI'].round(1)
-            h_text = top_h.to_string(index=False)
-
-            # Top 50 pitchers
+            # 1. Quick Snapshot of the Current Active Season Leaderboard (Top 15)
+            top_h_snap = hs.nlargest(15, score_h)[['player_name','team_tag',score_h,'games']].copy()
+            top_h_snap.columns = ['Player','Team','UVI','Games']
+            
             ps_copy = ps.copy()
             ps_copy['avg_ppg'] = ps_copy['total_pitches'] / ps_copy['games'].replace(0,1)
-            top_sp = ps_copy[ps_copy['avg_ppg'] >= 45].nlargest(25, score_p)[
-                ['player_name','team_tag',score_p,'games','total_pitches']
-            ].copy()
-            top_sp.columns = ['Player','Team','UVI','Games','Pitches']
-            top_sp['UVI'] = top_sp['UVI'].round(1)
-            sp_text = top_sp.to_string(index=False)
+            top_p_snap = ps_copy[ps_copy['avg_ppg'] >= 45].nlargest(15, score_p)[['player_name','team_tag',score_p,'games']].copy()
+            top_p_snap.columns = ['Player','Team','UVI','Games']
 
-            top_rp = ps_copy[ps_copy['avg_ppg'] < 45].nlargest(25, score_p)[
-                ['player_name','team_tag',score_p,'games','total_pitches']
-            ].copy()
-            top_rp.columns = ['Player','Team','UVI','Games','Pitches']
-            top_rp['UVI'] = top_rp['UVI'].round(1)
-            rp_text = top_rp.to_string(index=False)
+            # 2. Top 15 Individual Game Performances for Game-Level context
+            thresh_h = MIN_PITCH_HITTER_FULL
+            thresh_p = MIN_PITCH_PITCHER
+            
+            top_games_h = hg[hg['pitch_count'] >= thresh_h].nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
+            top_games_h['game_date'] = pd.to_datetime(top_games_h['game_date']).dt.strftime('%b %d')
+            
+            top_games_p = pg[pg['pitch_count'] >= thresh_p].nlargest(15, 'game_uvi')[['game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count']].copy()
+            top_games_p['game_date'] = pd.to_datetime(top_games_p['game_date']).dt.strftime('%b %d')
 
-            return h_text, sp_text, rp_text, season_yr
+            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), top_games_h.to_string(index=False), top_games_p.to_string(index=False), season_yr
 
-        h_context, sp_context, rp_context, ctx_season = build_uvi_context()
+        h_snap, p_snap, game_h_ctx, game_p_ctx, ctx_season = build_uvi_context()
 
-        system_prompt = f"""You are the UVI (Unified Value Index) analytics assistant.
-You answer questions about MLB player performance using real UVI data.
+        system_prompt = f"""You are the advanced UVI (Unified Value Index) Analytics Engine. 
+You possess full access to the underlying historical and current data structures of the UVI app.
 
-UVI measures every pitch a player throws or sees, weighted by:
-- Count leverage (3-2 count = 1.6x, 0-0 = 1.0x, 3-0 = 0.9x)
-- Win probability leverage (tie game late = high weight, blowout = low weight)
-Score of 100 = league average. Each 50 points = 1 standard deviation.
+DATABASE ARCHITECTURE AVAILABLE TO YOU:
+- `master_hitter_games_[YEAR].csv` & `master_pitcher_games_[YEAR].csv`: Pitch-by-pitch game logs containing 'game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count', and 'shift'.
+- `hitter_season_[YEAR].csv` & `pitcher_season_[YEAR].csv`: Cumulative seasonal metrics including 'complete_uvi', 'season_uvi', 'games', and 'total_pitches'.
 
-Score tiers:
-160+ = Impact Player
-130-159 = Proven Starter
-115-129 = Solid Contributor
-90-114 = Roster Average
-70-89 = Fringe Roster
-Below 70 = DFA Candidate
+UVI Baseline = 100 (league average). Above 100 is value added; below 100 is value leaked. Each 50 points = 1 standard deviation.
+AVAILABLE SEASONS IN ARCHITECTURE: 2023, 2024, 2025, 2026.
+CURRENT ACTIVE VIEW SELECTION: {ctx_season}
 
-Currently showing {ctx_season} season data.
+CURRENT SEASON SNAPSHOT (TOP 15 HITTERS):
+{h_snap}
 
-TOP 50 HITTERS:
-{h_context}
+CURRENT SEASON SNAPSHOT (TOP 15 STARTERS):
+{p_snap}
 
-TOP 25 STARTING PITCHERS:
-{sp_context}
+TOP 15 INDIVIDUAL GAME PERFORMANCES (HITTERS):
+{game_h_ctx}
 
-TOP 25 RELIEF PITCHERS:
-{rp_context}
+TOP 15 INDIVIDUAL GAME PERFORMANCES (PITCHERS):
+{game_p_ctx}
 
-Rules:
-- Only use the data provided above. Do not make up statistics.
-- If a player is not in the data, say so honestly.
-- Keep answers concise and analytical.
-- Reference specific UVI scores and game counts when relevant.
-- When comparing players, use the actual numbers from the data.
-- If asked about something UVI doesn't measure, explain what UVI does measure and answer as best you can."""
+CRITICAL RULES FOR COMPLEX QUERIES:
+1. TOP N RANKINGS: If asked for top players of the current season, reference the snapshots above. If the user asks for a top 5, use the exact names and scores from the lists.
+2. YEAR-OVER-YEAR COMPARISONS: If a user asks to compare seasons (e.g., Aaron Judge 2023 vs 2026), look for data in the 'DETAILED LOGS' injected below. Synthesize how their UVI shifted over time.
+3. TEAM TRENDS (e.g., "Which Pirates are trending up?"): Look closely at the injected detailed team data. Identify players whose recent game UVIs are consistently outperforming season averages (peaking) vs. those dropping below 100 (leaking).
+4. Treat the "Individual Game Performances" tables as your absolute source for any "best game" or "single game" questions.
+5. Act as a high-level MLB Research Analyst. Be direct, mathematically grounded, and professional. Do not invent statistics."""
 
         # Initialize chat history
         if 'ask_uvi_history' not in st.session_state:
@@ -1429,109 +1418,110 @@ Rules:
         for msg in st.session_state.ask_uvi_history:
             if msg['role'] == 'user':
                 st.markdown(f"""
-                <div style="background:#1A2333;border:1px solid rgba(201,168,76,0.15);
-                    border-radius:10px;padding:12px 16px;margin:8px 0">
+                <div style="background:#1A2333;border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:12px 16px;margin:8px 0">
                     <div style="font-size:0.7rem;color:#6B7A8D;margin-bottom:4px">YOU</div>
                     <div style="color:#E8E8E8">{msg['content']}</div>
                 </div>""", unsafe_allow_html=True)
             else:
                 st.markdown(f"""
-                <div style="background:#131A24;border:1px solid rgba(201,168,76,0.15);
-                    border-left:3px solid #C9A84C;border-radius:10px;
-                    padding:12px 16px;margin:8px 0">
-                    <div style="font-size:0.7rem;color:#C9A84C;margin-bottom:4px">UVI</div>
+                <div style="background:#131A24;border:1px solid rgba(201,168,76,0.15);border-left:3px solid #C9A84C;border-radius:10px;padding:12px 16px;margin:8px 0">
+                    <div style="font-size:0.7rem;color:#C9A84C;margin-bottom:4px">UVI ASSISTANT</div>
                     <div style="color:#E8E8E8">{msg['content']}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # Input
-        user_question = st.text_input('Ask a question about any player or team...',
-                                       key='ask_uvi_input',
-                                       placeholder='e.g. Who are the top 5 hitters right now?')
+        # STATE-SAFE SUBMISSION LOOP FIX
+        def submit_question():
+            user_query = st.session_state.widget_question
+            if user_query:
+                st.session_state.current_question = user_query
+                st.session_state.ask_uvi_history.append({'role': 'user', 'content': user_query})
+                st.session_state.widget_question = ""  # Clear text box instantly
 
-        if user_question:
-            # Check if player is mentioned and add their game log if available
+        st.text_input('Ask a question about any player or team...', key='widget_question', on_change=submit_question, placeholder='e.g. Compare Aaron Judge\'s 2023 and 2026 seasons in UVI')
+
+        # Process query only once per submission
+        if 'current_question' in st.session_state and st.session_state.current_question:
+            q = st.session_state.current_question
+            st.session_state.current_question = None  # Reset trigger trigger
+
             extra_context = ""
+            
+            # 1. Dynamic player lookup loop
             for _, row in hs.iterrows():
-                if row['player_name'].lower() in user_question.lower():
+                if row['player_name'].lower() in q.lower():
                     player_games = hg[hg['player_name'] == row['player_name']].copy()
                     if not player_games.empty:
-                        player_games['game_uvi'] = compute_game_uvi_col(
-                            player_games, 'hitter')
+                        player_games['game_uvi'] = compute_game_uvi_col(player_games, 'hitter')
                         recent = player_games.sort_values('game_date').tail(10)
-                        recent_str = recent[['game_date','team_tag',
-                                              'game_uvi','pitch_count']].to_string(index=False)
-                        season_uvi = compute_span_uvi(player_games, 'hitter')
-                        last7 = player_games.tail(7)
-                        last7_uvi = compute_span_uvi(last7, 'hitter') if len(last7) >= 2 else season_uvi
-                        extra_context = (
-                            f"\n\nDETAILED DATA FOR {row['player_name'].upper()}:\n"
-                            f"Season UVI: {season_uvi:.1f}\n"
-                            f"Last 7 games UVI: {last7_uvi:.1f}\n"
-                            f"Trend: {'↑ trending up' if last7_uvi > season_uvi else '↓ trending down'}\n"
+                        recent_str = recent[['game_date','team_tag','game_uvi','pitch_count']].to_string(index=False)
+                        score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
+                        extra_context += (
+                            f"\n\nDETAILED GAME LOG FOR {row['player_name'].upper()}:\n"
+                            f"Season UVI: {row.get(score_h, 100):.1f}\n"
                             f"Recent game log:\n{recent_str}"
                         )
                     break
-            if not extra_context:
-                for _, row in ps.iterrows():
-                    if row['player_name'].lower() in user_question.lower():
-                        player_games = pg[pg['player_name'] == row['player_name']].copy()
-                        if not player_games.empty:
-                            player_games['game_uvi'] = compute_game_uvi_col(
-                                player_games, 'pitcher')
-                            recent = player_games.sort_values('game_date').tail(10)
-                            recent_str = recent[['game_date','team_tag',
-                                                  'game_uvi','pitch_count']].to_string(index=False)
-                            season_uvi = compute_span_uvi(player_games, 'pitcher')
-                            extra_context = (
-                                f"\n\nDETAILED DATA FOR {row['player_name'].upper()}:\n"
-                                f"Season UVI: {season_uvi:.1f}\n"
-                                f"Recent game log:\n{recent_str}"
-                            )
-                        break
 
-            st.session_state.ask_uvi_history.append(
-                {'role': 'user', 'content': user_question})
+            for _, row in ps.iterrows():
+                if row['player_name'].lower() in q.lower():
+                    player_games = pg[pg['player_name'] == row['player_name']].copy()
+                    if not player_games.empty:
+                        player_games['game_uvi'] = compute_game_uvi_col(player_games, 'pitcher')
+                        recent = player_games.sort_values('game_date').tail(10)
+                        recent_str = recent[['game_date','team_tag','game_uvi','pitch_count']].to_string(index=False)
+                        extra_context += (
+                            f"\n\nDETAILED GAME LOG FOR {row['player_name'].upper()}:\n"
+                            f"Season UVI: {row.get('season_uvi', 100):.1f}\n"
+                            f"Recent game log:\n{recent_str}"
+                        )
+                    break
 
-            with st.spinner('Analyzing...'):
+            # 2. Team-wide snapshot loop for questions like "Which Pirates are trending up?"
+            for team_code in TEAM_NAMES.keys():
+                if TEAM_NAMES[team_code].lower() in q.lower() or team_code.lower() in q.lower():
+                    score_col = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
+                    team_hitters = hs[hs['team_tag'] == team_code].nlargest(10, score_col)
+                    team_pitchers = ps[ps['team_tag'] == team_code].nlargest(10, 'season_uvi')
+                    extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT:\n"
+                    extra_context += f"Top Hitters:\n{team_hitters[['player_name', score_col, 'games']].to_string(index=False)}\n"
+                    extra_context += f"Top Pitchers:\n{team_pitchers[['player_name', 'season_uvi', 'games']].to_string(index=False)}"
+                    break
+
+            with st.spinner('Analyzing UVI Engine...'):
                 try:
-                    # Auto-detect the newest available Flash model for your API key
+                    # Automatically find the latest active Flash model variant to ensure long-term stability
                     valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                     flash_model = next((m for m in valid_models if 'flash' in m), 'gemini-2.5-flash')
                     
                     model = genai.GenerativeModel(flash_model)
-                    full_prompt = system_prompt + extra_context + \
-                                  f"\n\nUser question: {user_question}"
+                    full_prompt = system_prompt + extra_context + f"\n\nUser question: {q}"
                     response = model.generate_content(full_prompt)
-                    answer = response.text
-
-                    st.session_state.ask_uvi_history.append(
-                        {'role': 'assistant', 'content': answer})
+                    
+                    st.session_state.ask_uvi_history.append({'role': 'assistant', 'content': response.text})
                     st.rerun()
                 except Exception as e:
                     st.error(f'Error generating response: {str(e)}')
 
         # Clear chat button
         if st.session_state.ask_uvi_history:
+            st.markdown('---')
             if st.button('Clear conversation'):
                 st.session_state.ask_uvi_history = []
                 st.rerun()
 
-        # Example questions
+        # Context-relevant helpful examples
         if not st.session_state.ask_uvi_history:
             st.markdown('---')
             st.markdown('### Try asking:')
             examples = [
-                'Who are the top 5 hitters in 2026?',
-                'How is Paul Skenes doing this season?',
-                'Which team has the best overall hitting?',
-                'Who are the most improved players recently?',
-                'Compare the top starting pitchers right now.',
+                'Who are the top 5 hitters in 2026 right now?',
+                'What is the single best UVI game so far?',
+                'Which Pirates players have the highest UVI scores?',
             ]
             for ex in examples:
                 st.caption(f'💬 "{ex}"')
     else:
-        st.error('Data not available.')
-
+        st.error('Data files not ready. Please verify your data directory setup.')
 # ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
 # ────────────────────────────────────────────────────────────────────────────
