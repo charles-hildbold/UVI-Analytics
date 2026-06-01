@@ -1455,65 +1455,65 @@ CRITICAL RULES FOR COMPLEX QUERIES:
         # Process query only once per submission
         if 'current_question' in st.session_state and st.session_state.current_question:
             q = st.session_state.current_question
-            st.session_state.current_question = None  # Reset trigger trigger
+            st.session_state.current_question = None  # Reset trigger
 
             extra_context = ""
-            
-            # 1. Dynamic player lookup loop
-            for _, row in hs.iterrows():
-                if row['player_name'].lower() in q.lower():
-                    player_games = hg[hg['player_name'] == row['player_name']].copy()
-                    if not player_games.empty:
-                        player_games['game_uvi'] = compute_game_uvi_col(player_games, 'hitter')
-                        recent = player_games.sort_values('game_date').tail(10)
-                        recent_str = recent[['game_date','team_tag','game_uvi','pitch_count']].to_string(index=False)
-                        score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
-                        extra_context += (
-                            f"\n\nDETAILED GAME LOG FOR {row['player_name'].upper()}:\n"
-                            f"Season UVI: {row.get(score_h, 100):.1f}\n"
-                            f"Recent game log:\n{recent_str}"
-                        )
+            player_found = False
+            detected_player = ""
+            detected_role = ""
+
+            # 1. First, scan the master player lists across ALL seasons to see who is being discussed
+            # We check the current global 'all_players' list compiled from your active files
+            for p_name in all_players:
+                if p_name.lower() in q.lower():
+                    detected_player = p_name
+                    # Determine if they are primarily a hitter or pitcher in the current dataset
+                    detected_role = 'hitter' if p_name in hs['player_name'].values else 'pitcher'
+                    player_found = True
                     break
 
-            for _, row in ps.iterrows():
-                if row['player_name'].lower() in q.lower():
-                    player_games = pg[pg['player_name'] == row['player_name']].copy()
-                    if not player_games.empty:
-                        player_games['game_uvi'] = compute_game_uvi_col(player_games, 'pitcher')
-                        recent = player_games.sort_values('game_date').tail(10)
-                        recent_str = recent[['game_date','team_tag','game_uvi','pitch_count']].to_string(index=False)
-                        extra_context += (
-                            f"\n\nDETAILED GAME LOG FOR {row['player_name'].upper()}:\n"
-                            f"Season UVI: {row.get('season_uvi', 100):.1f}\n"
-                            f"Recent game log:\n{recent_str}"
-                        )
-                    break
+            # 2. If a player is found, pull their summary and game logs across EVERY season automatically
+            if player_found:
+                extra_context += f"\n\n==== HISTORICAL CAREER DATA FOR {detected_player.upper()} ====\n"
+                
+                target_seasons = [2023, 2024, 2025, 2026]
+                for yr in target_seasons:
+                    try:
+                        # Fetch the dataset for that specific year dynamically
+                        h_games_yr, p_games_yr, h_season_yr, p_season_yr = load_season_data(yr, 'data')
+                        
+                        if detected_role == 'hitter':
+                            s_row = h_season_yr[h_season_yr['player_name'] == detected_player]
+                            g_logs = h_games_yr[h_games_yr['player_name'] == detected_player].copy()
+                            score_col = 'complete_uvi' if 'complete_uvi' in h_season_yr.columns else 'batting_uvi'
+                        else:
+                            s_row = p_season_yr[p_season_yr['player_name'] == detected_player]
+                            g_logs = p_games_yr[p_games_yr['player_name'] == detected_player].copy()
+                            score_col = 'season_uvi'
 
-            # 2. Team-wide snapshot loop for questions like "Which Pirates are trending up?"
-            for team_code in TEAM_NAMES.keys():
-                if TEAM_NAMES[team_code].lower() in q.lower() or team_code.lower() in q.lower():
-                    score_col = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
-                    team_hitters = hs[hs['team_tag'] == team_code].nlargest(10, score_col)
-                    team_pitchers = ps[ps['team_tag'] == team_code].nlargest(10, 'season_uvi')
-                    extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT:\n"
-                    extra_context += f"Top Hitters:\n{team_hitters[['player_name', score_col, 'games']].to_string(index=False)}\n"
-                    extra_context += f"Top Pitchers:\n{team_pitchers[['player_name', 'season_uvi', 'games']].to_string(index=False)}"
-                    break
+                        if not s_row.empty:
+                            extra_context += f"\n--- {yr} Regular Season Summary ---\n"
+                            extra_context += f"Season UVI: {s_row.iloc[0].get(score_col, 100):.1f} · Games: {int(s_row.iloc[0].get('games', 0))} · Pitches: {int(s_row.iloc[0].get('total_pitches', 0))}\n"
+                            
+                            if not g_logs.empty:
+                                g_logs['game_uvi'] = compute_game_uvi_col(g_logs, detected_role)
+                                recent_games = g_logs.sort_values('game_date').tail(5)
+                                extra_context += f"Sample Game Log Entries ({yr}):\n"
+                                extra_context += f"{recent_games[['game_date', 'team_tag', 'game_uvi', 'pitch_count']].to_string(index=False)}\n"
+                    except Exception:
+                        pass # If a year file is missing or a player didn't play that year (like Skenes in '23), skip it cleanly
 
-            with st.spinner('Analyzing UVI Engine...'):
-                try:
-                    # Automatically find the latest active Flash model variant to ensure long-term stability
-                    valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    flash_model = next((m for m in valid_models if 'flash' in m), 'gemini-2.5-flash')
-                    
-                    model = genai.GenerativeModel(flash_model)
-                    full_prompt = system_prompt + extra_context + f"\n\nUser question: {q}"
-                    response = model.generate_content(full_prompt)
-                    
-                    st.session_state.ask_uvi_history.append({'role': 'assistant', 'content': response.text})
-                    st.rerun()
-                except Exception as e:
-                    st.error(f'Error generating response: {str(e)}')
+            # 3. Team-wide snapshot loop for questions like "Which Pirates are trending up?"
+            else:
+                for team_code in TEAM_NAMES.keys():
+                    if TEAM_NAMES[team_code].lower() in q.lower() or team_code.lower() in q.lower():
+                        score_col = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
+                        team_hitters = hs[hs['team_tag'] == team_code].nlargest(10, score_col)
+                        team_pitchers = ps[ps['team_tag'] == team_code].nlargest(10, 'season_uvi')
+                        extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT ({ctx_season}):\n"
+                        extra_context += f"Top Hitters:\n{team_hitters[['player_name', score_col, 'games']].to_string(index=False)}\n"
+                        extra_context += f"Top Pitchers:\n{team_pitchers[['player_name', 'season_uvi', 'games']].to_string(index=False)}"
+                        break
 
         # Clear chat button
         if st.session_state.ask_uvi_history:
