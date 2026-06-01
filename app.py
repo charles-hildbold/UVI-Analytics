@@ -1350,10 +1350,13 @@ elif mode == '🤖 Ask UVI':
             st.error('Gemini API key not configured. Add GEMINI_API_KEY to Streamlit secrets.')
             st.stop()
 
+        # Securely build all_players for the active season view to prevent any NameErrors
+        active_players = sorted(hs['player_name'].dropna().unique().tolist() + 
+                                ps['player_name'].dropna().unique().tolist())
+
         # Build a structured data layout for the AI
         @st.cache_data(show_spinner=False)
-        def build_uvi_context():
-            season_yr = st.session_state.get('selected_season', 2026)
+        def build_uvi_context(selected_season_str):
             score_h = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
             score_p = 'season_uvi'
 
@@ -1370,7 +1373,6 @@ elif mode == '🤖 Ask UVI':
             thresh_h = MIN_PITCH_HITTER_FULL
             thresh_p = MIN_PITCH_PITCHER
             
-            # Create shallow copies and calculate game_uvi globally for the context step
             hg_ctx = hg[hg['pitch_count'] >= thresh_h].copy()
             if not hg_ctx.empty:
                 hg_ctx['game_uvi'] = compute_game_uvi_col(hg_ctx, 'hitter')
@@ -1389,39 +1391,37 @@ elif mode == '🤖 Ask UVI':
             else:
                 game_p_text = "No reliable pitcher games found."
 
-            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), game_h_text, game_p_text, season_yr
+            return top_h_snap.to_string(index=False), top_p_snap.to_string(index=False), game_h_text, game_p_text
 
-        h_snap, p_snap, game_h_ctx, game_p_ctx, ctx_season = build_uvi_context()
+        h_snap, p_snap, game_h_ctx, game_p_ctx = build_uvi_context(str(st.session_state.selected_season))
 
         system_prompt = f"""You are the advanced UVI (Unified Value Index) Analytics Engine. 
 You possess full access to the underlying historical and current data structures of the UVI app.
 
-DATABASE ARCHITECTURE AVAILABLE TO YOU:
-- `master_hitter_games_[YEAR].csv` & `master_pitcher_games_[YEAR].csv`: Pitch-by-pitch game logs containing 'game_date', 'player_name', 'team_tag', 'game_uvi', 'pitch_count', and 'shift'.
-- `hitter_season_[YEAR].csv` & `pitcher_season_[YEAR].csv`: Cumulative seasonal metrics including 'complete_uvi', 'season_uvi', 'games', and 'total_pitches'.
+DATABASE ARCHITECTURE:
+- `master_hitter_games_[YEAR].csv` & `master_pitcher_games_[YEAR].csv`: Individual game logs containing 'game_date', 'player_name', 'team_tag', 'game_uvi', and 'pitch_count'.
+- `hitter_season_[YEAR].csv` & `pitcher_season_[YEAR].csv`: Seasonal summary files with overall cumulative metrics.
 
 UVI Baseline = 100 (league average). Above 100 is value added; below 100 is value leaked. Each 50 points = 1 standard deviation.
-AVAILABLE SEASONS IN ARCHITECTURE: 2023, 2024, 2025, 2026.
-CURRENT ACTIVE VIEW SELECTION: {ctx_season}
+CURRENT SELECTED VIEW: {st.session_state.selected_season}
 
-CURRENT SEASON SNAPSHOT (TOP 15 HITTERS):
+CURRENT LEADERBOARD SNAPSHOT (TOP 15 HITTERS):
 {h_snap}
 
-CURRENT SEASON SNAPSHOT (TOP 15 STARTERS):
+CURRENT LEADERBOARD SNAPSHOT (TOP 15 STARTERS):
 {p_snap}
 
-TOP 15 INDIVIDUAL GAME PERFORMANCES (HITTERS):
+TOP 15 SINGLE-GAME PERFORMANCES (HITTERS):
 {game_h_ctx}
 
-TOP 15 INDIVIDUAL GAME PERFORMANCES (PITCHERS):
+TOP 15 SINGLE-GAME PERFORMANCES (PITCHERS):
 {game_p_ctx}
 
-CRITICAL RULES FOR COMPLEX QUERIES:
-1. TOP N RANKINGS: If asked for top players of the current season, reference the snapshots above. If the user asks for a top 5, use the exact names and scores from the lists.
-2. YEAR-OVER-YEAR COMPARISONS: If a user asks to compare seasons (e.g., Aaron Judge 2023 vs 2026), look for data in the 'DETAILED LOGS' injected below. Synthesize how their UVI shifted over time.
-3. TEAM TRENDS (e.g., "Which Pirates are trending up?"): Look closely at the injected detailed team data. Identify players whose recent game UVIs are consistently outperforming season averages (peaking) vs. those dropping below 100 (leaking).
-4. Treat the "Individual Game Performances" tables as your absolute source for any "best game" or "single game" questions.
-5. Act as a high-level MLB Research Analyst. Be direct, mathematically grounded, and professional. Do not invent statistics."""
+CRITICAL EXECUTION RULES:
+1. LEADERBOARDS & RANKINGS: Use the exact tables above to answer top rankings or "best game" questions.
+2. MULTI-YEAR CAREER COMPARISONS: If asked to evaluate a player across different years, heavily analyze the parsed 'HISTORICAL CAREER LOGS' supplied below. Look at their value changes, volume differences, and performance stability year-over-year.
+3. TEAM ANALYSIS: If asked about team trends, examine the context to find who is performing optimally.
+4. Maintain a professional, data-focused tone. State findings clearly and back them up using numbers from the dataset. Do not invent statistics."""
 
         # Initialize chat history
         if 'ask_uvi_history' not in st.session_state:
@@ -1442,44 +1442,41 @@ CRITICAL RULES FOR COMPLEX QUERIES:
                     <div style="color:#E8E8E8">{msg['content']}</div>
                 </div>""", unsafe_allow_html=True)
 
-        # STATE-SAFE SUBMISSION LOOP FIX
-        def submit_question():
-            user_query = st.session_state.widget_question
-            if user_query:
-                st.session_state.current_question = user_query
-                st.session_state.ask_uvi_history.append({'role': 'user', 'content': user_query})
-                st.session_state.widget_question = ""  # Clear text box instantly
+        # Callback function to prevent state-refresh looping
+        def handle_user_submission():
+            query_text = st.session_state.widget_question
+            if query_text:
+                st.session_state.current_question = query_text
+                st.session_state.ask_uvi_history.append({'role': 'user', 'content': query_text})
+                st.session_state.widget_question = ""  # Erase field instantly
 
-        st.text_input('Ask a question about any player or team...', key='widget_question', on_change=submit_question, placeholder='e.g. Compare Aaron Judge\'s 2023 and 2026 seasons in UVI')
+        st.text_input('Ask a question about any player or team...', key='widget_question', on_change=handle_user_submission, placeholder='e.g. Compare Aaron Judge\'s performance across seasons')
 
-        # Process query only once per submission
+        # Run query execution precisely once per submission event
         if 'current_question' in st.session_state and st.session_state.current_question:
             q = st.session_state.current_question
-            st.session_state.current_question = None  # Reset trigger
+            st.session_state.current_question = None  # Reset tracking state
 
             extra_context = ""
             player_found = False
             detected_player = ""
             detected_role = ""
 
-            # 1. First, scan the master player lists across ALL seasons to see who is being discussed
-            # We check the current global 'all_players' list compiled from your active files
-            for p_name in all_players:
+            # Check if an active player name matches the user's string input
+            for p_name in active_players:
                 if p_name.lower() in q.lower():
                     detected_player = p_name
-                    # Determine if they are primarily a hitter or pitcher in the current dataset
                     detected_role = 'hitter' if p_name in hs['player_name'].values else 'pitcher'
                     player_found = True
                     break
 
-            # 2. If a player is found, pull their summary and game logs across EVERY season automatically
+            # Career Lookup Loop: Pull records dynamically for every supported year file
             if player_found:
-                extra_context += f"\n\n==== HISTORICAL CAREER DATA FOR {detected_player.upper()} ====\n"
+                extra_context += f"\n\n==== HISTORICAL CAREER LOGS FOR {detected_player.upper()} ====\n"
                 
-                target_seasons = [2023, 2024, 2025, 2026]
-                for yr in target_seasons:
+                # Check regular seasons mapped within your configuration
+                for yr in [2023, 2024, 2025, 2026]:
                     try:
-                        # Fetch the dataset for that specific year dynamically
                         h_games_yr, p_games_yr, h_season_yr, p_season_yr = load_season_data(yr, 'data')
                         
                         if detected_role == 'hitter':
@@ -1497,32 +1494,46 @@ CRITICAL RULES FOR COMPLEX QUERIES:
                             
                             if not g_logs.empty:
                                 g_logs['game_uvi'] = compute_game_uvi_col(g_logs, detected_role)
-                                recent_games = g_logs.sort_values('game_date').tail(5)
+                                sorted_games = g_logs.sort_values('game_date').tail(5)
                                 extra_context += f"Sample Game Log Entries ({yr}):\n"
-                                extra_context += f"{recent_games[['game_date', 'team_tag', 'game_uvi', 'pitch_count']].to_string(index=False)}\n"
+                                extra_context += f"{sorted_games[['game_date', 'team_tag', 'game_uvi', 'pitch_count']].to_string(index=False)}\n"
                     except Exception:
-                        pass # If a year file is missing or a player didn't play that year (like Skenes in '23), skip it cleanly
+                        pass
 
-            # 3. Team-wide snapshot loop for questions like "Which Pirates are trending up?"
+            # Team Lookup Loop: Provide snapshot datasets if team terminology is detected
             else:
                 for team_code in TEAM_NAMES.keys():
                     if TEAM_NAMES[team_code].lower() in q.lower() or team_code.lower() in q.lower():
                         score_col = 'complete_uvi' if 'complete_uvi' in hs.columns else 'batting_uvi'
                         team_hitters = hs[hs['team_tag'] == team_code].nlargest(10, score_col)
                         team_pitchers = ps[ps['team_tag'] == team_code].nlargest(10, 'season_uvi')
-                        extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT ({ctx_season}):\n"
+                        extra_context += f"\n\nCURRENT {team_code} TEAM SNAPSHOT:\n"
                         extra_context += f"Top Hitters:\n{team_hitters[['player_name', score_col, 'games']].to_string(index=False)}\n"
                         extra_context += f"Top Pitchers:\n{team_pitchers[['player_name', 'season_uvi', 'games']].to_string(index=False)}"
                         break
 
-        # Clear chat button
+            with st.spinner('Analyzing UVI Engine Data...'):
+                try:
+                    # Dynamically catch your active Gemini model version framework
+                    valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    flash_model = next((m for m in valid_models if 'flash' in m), 'gemini-2.5-flash')
+                    
+                    model = genai.GenerativeModel(flash_model)
+                    full_prompt = system_prompt + extra_context + f"\n\nUser question: {q}"
+                    response = model.generate_content(full_prompt)
+                    
+                    st.session_state.ask_uvi_history.append({'role': 'assistant', 'content': response.text})
+                    st.rerun()
+                except Exception as e:
+                    st.error(f'Error generating response: {str(e)}')
+
         if st.session_state.ask_uvi_history:
             st.markdown('---')
             if st.button('Clear conversation'):
                 st.session_state.ask_uvi_history = []
                 st.rerun()
 
-        # Context-relevant helpful examples
+        # Display sample prompts to help guide layout choices
         if not st.session_state.ask_uvi_history:
             st.markdown('---')
             st.markdown('### Try asking:')
@@ -1534,8 +1545,7 @@ CRITICAL RULES FOR COMPLEX QUERIES:
             for ex in examples:
                 st.caption(f'💬 "{ex}"')
     else:
-        st.error('Data files not ready. Please verify your data directory setup.')
-# ────────────────────────────────────────────────────────────────────────────
+        st.error('Data files not ready. Please verify your data directory setup.')# ────────────────────────────────────────────────────────────────────────────
 # PAGE: METHODOLOGY
 # ────────────────────────────────────────────────────────────────────────────
 elif mode == '📖 Methodology':
